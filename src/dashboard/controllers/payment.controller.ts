@@ -46,14 +46,118 @@ class PaymentController {
     }
   }
 
+  /**
+   * Qolgan qarzni to'lash (mavjud to'lovga qo'shimcha)
+   */
+  async payRemaining(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user;
+      const { paymentId, amount, notes, currencyDetails, currencyCourse } = req.body;
+
+      console.log("💰 === PAY REMAINING (DASHBOARD) ===");
+      console.log("Payment ID:", paymentId);
+      console.log("Amount:", amount);
+
+      // Validation
+      if (!paymentId) {
+        return next(BaseError.BadRequest("Payment ID kiritilmagan"));
+      }
+
+      if (!amount || amount <= 0) {
+        return next(BaseError.BadRequest("To'lov summasi noto'g'ri"));
+      }
+
+      const data = await paymentService.payRemaining(
+        {
+          paymentId,
+          amount,
+          notes: notes || "",
+          currencyDetails: currencyDetails || { dollar: amount, sum: 0 },
+          currencyCourse: currencyCourse || 12500,
+        },
+        user
+      );
+
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("❌ Error in payRemaining:", error);
+      return next(error);
+    }
+  }
+
   async payByContract(req: Request, res: Response, next: NextFunction) {
     try {
       const user = req.user;
       const { contractId, amount, notes, currencyDetails, currencyCourse } =
         req.body;
 
-      if (!contractId || !amount || !currencyDetails || !currencyCourse) {
-        return next(BaseError.BadRequest("To'lov ma'lumotlari to'liq emas"));
+      console.log("📥 payByContract request:", {
+        contractId,
+        amount,
+        notes,
+        currencyDetails,
+        currencyCourse,
+        user: user?.name,
+      });
+
+      // ✅ TEMPORARY FIX: Agar notes'da [PAY_REMAINING:paymentId] bo'lsa, payRemaining'ni chaqiramiz
+      if (notes && notes.includes("[PAY_REMAINING:")) {
+        console.log("🔍 Checking for PAY_REMAINING tag in notes:", notes);
+        const match = notes.match(/\[PAY_REMAINING:([^\]]+)\]/);
+        console.log("🔍 Regex match result:", match);
+
+        if (match && match[1]) {
+          const paymentId = match[1];
+          const cleanNotes = notes.replace(/\[PAY_REMAINING:[^\]]+\]\s*/, "");
+
+          console.log("💰 ✅ Detected PAY_REMAINING request:", {
+            paymentId,
+            amount,
+            cleanNotes,
+          });
+
+          const data = await paymentService.payRemaining(
+            {
+              paymentId,
+              amount,
+              notes: cleanNotes,
+              currencyDetails: currencyDetails || { dollar: amount, sum: 0 },
+              currencyCourse: currencyCourse || 12500,
+            },
+            user
+          );
+
+          return res.status(200).json(data);
+        } else {
+          console.log("❌ PAY_REMAINING tag found but regex didn't match");
+        }
+      } else {
+        console.log("ℹ️ No PAY_REMAINING tag in notes, proceeding with normal payment");
+      }
+
+      // Batafsil validatsiya
+      const validationErrors = [];
+
+      if (!contractId) validationErrors.push("contractId yo'q");
+      if (!amount || amount <= 0) validationErrors.push("amount noto'g'ri");
+      if (!currencyDetails) validationErrors.push("currencyDetails yo'q");
+      else {
+        if (currencyDetails.dollar === undefined) validationErrors.push("currencyDetails.dollar yo'q");
+        if (currencyDetails.sum === undefined) validationErrors.push("currencyDetails.sum yo'q");
+      }
+      if (!currencyCourse || currencyCourse <= 0) validationErrors.push("currencyCourse noto'g'ri");
+
+      if (validationErrors.length > 0) {
+        console.error("❌ payByContract validation failed:", {
+          errors: validationErrors,
+          receivedData: {
+            contractId,
+            amount,
+            currencyDetails,
+            currencyCourse,
+          },
+        });
+        return next(BaseError.BadRequest(`To'lov ma'lumotlari to'liq emas: ${validationErrors.join(", ")}`));
       }
 
       const data = await paymentService.payByContract(
@@ -125,6 +229,73 @@ class PaymentController {
 
       const data = await paymentService.rejectPayment(paymentId, reason, user);
       res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async payAllRemainingMonths(req: Request, res: Response, next: NextFunction) {
+    try {
+      console.log("🎯 payAllRemainingMonths CALLED!");
+      console.log("📦 Request body:", req.body);
+      console.log("👤 Request user:", req.user);
+
+      const user = req.user;
+      const { contractId, amount, notes, currencyDetails, currencyCourse } =
+        req.body;
+
+      console.log("📥 payAllRemainingMonths request:", {
+        contractId,
+        amount,
+        notes,
+        currencyDetails,
+        currencyCourse,
+        user: user?.name,
+      });
+
+      // Agar user yo'q bo'lsa
+      if (!user) {
+        console.error("❌ User not found in request");
+        return next(BaseError.UnauthorizedError("Foydalanuvchi autentifikatsiya qilinmagan"));
+      }
+
+      // Batafsil validatsiya
+      const validationErrors = [];
+
+      if (!contractId) validationErrors.push("contractId yo'q");
+      if (!amount || amount <= 0) validationErrors.push("amount noto'g'ri");
+      if (!currencyDetails) validationErrors.push("currencyDetails yo'q");
+      else {
+        if (currencyDetails.dollar === undefined) validationErrors.push("currencyDetails.dollar yo'q");
+        if (currencyDetails.sum === undefined) validationErrors.push("currencyDetails.sum yo'q");
+      }
+      if (!currencyCourse || currencyCourse <= 0) validationErrors.push("currencyCourse noto'g'ri");
+
+      if (validationErrors.length > 0) {
+        console.error("❌ payAllRemainingMonths validation failed:", {
+          errors: validationErrors,
+          receivedData: {
+            contractId,
+            amount,
+            currencyDetails,
+            currencyCourse,
+          },
+        });
+        return next(BaseError.BadRequest(`To'lov ma'lumotlari to'liq emas: ${validationErrors.join(", ")}`));
+      }
+
+      const data = await paymentService.payAllRemainingMonths(
+        {
+          contractId,
+          amount,
+          notes,
+          currencyDetails,
+          currencyCourse,
+        },
+        user
+      );
+
+      res.status(201).json(data);
     } catch (error) {
       return next(error);
     }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import paymentController from "../controllers/payment.controller";
 import { checkPermission } from "../../middlewares/CheckPermission.middleware";
+import { authenticate } from "../../middlewares/auth.middleware";
 import { Permission } from "../../enums/permission.enum";
 const router = Router();
 
@@ -12,7 +13,7 @@ router.put(
 
 router.post(
   "/contract",
-  checkPermission(Permission.UPDATE_CASH),
+  authenticate, // Oddiy authentication
   paymentController.payByContract
 );
 
@@ -39,6 +40,20 @@ router.post(
   "/reject",
   checkPermission(Permission.UPDATE_CASH),
   paymentController.rejectPayment
+);
+
+// Barcha oylarni to'lash endpoint
+router.post(
+  "/pay-all-remaining",
+  authenticate, // Oddiy authentication (permission tekshirilmaydi)
+  paymentController.payAllRemainingMonths
+);
+
+// Qolgan qarzni to'lash endpoint (mavjud to'lovga qo'shimcha)
+router.post(
+  "/pay-remaining",
+  authenticate, // Oddiy authentication
+  paymentController.payRemaining
 );
 
 export default router;

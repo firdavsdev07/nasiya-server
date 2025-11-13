@@ -456,6 +456,137 @@ class PaymentService {
   }
 
   /**
+   * Qolgan qarzni to'lash (mavjud to'lovga qo'shimcha)
+   * Mavjud UNDERPAID to'lovni PAID holatiga o'tkazish
+   */
+  async payRemaining(
+    payData: {
+      paymentId: string;
+      amount: number;
+      notes: string;
+      currencyDetails: { dollar: number; sum: number };
+      currencyCourse: number;
+    },
+    user: IJwtUser
+  ) {
+    try {
+      console.log("💰 === PAY REMAINING (SERVICE) ===");
+      console.log("Payment ID:", payData.paymentId);
+      console.log("Amount:", payData.amount);
+
+      // 1. Mavjud to'lovni topish
+      const existingPayment = await Payment.findById(payData.paymentId);
+
+      if (!existingPayment) {
+        throw BaseError.NotFoundError("To'lov topilmadi");
+      }
+
+      if (existingPayment.status !== PaymentStatus.UNDERPAID) {
+        throw BaseError.BadRequest("Bu to'lov UNDERPAID holatida emas");
+      }
+
+      console.log("✅ Existing payment found:", {
+        id: existingPayment._id,
+        status: existingPayment.status,
+        remainingAmount: existingPayment.remainingAmount,
+        actualAmount: existingPayment.actualAmount,
+      });
+
+      // 2. Manager topish
+      const manager = await Employee.findById(user.sub);
+      if (!manager) {
+        throw BaseError.NotFoundError("Manager topilmadi");
+      }
+
+      // 3. Qolgan summani tekshirish
+      const remainingAmount = existingPayment.remainingAmount || 0;
+      const paymentAmount = payData.amount;
+
+      if (paymentAmount > remainingAmount + 0.01) {
+        throw BaseError.BadRequest(
+          `Qolgan qarz ${remainingAmount} $, lekin siz ${paymentAmount} $ to'lamoqchisiz`
+        );
+      }
+
+      // 4. actualAmount'ni yangilash
+      const newActualAmount = (existingPayment.actualAmount || 0) + paymentAmount;
+      const newRemainingAmount = Math.max(0, remainingAmount - paymentAmount);
+
+      existingPayment.actualAmount = newActualAmount;
+      existingPayment.remainingAmount = newRemainingAmount;
+
+      // 5. Status'ni yangilash
+      if (newRemainingAmount < 0.01) {
+        existingPayment.status = PaymentStatus.PAID;
+        existingPayment.isPaid = true;
+        console.log("✅ Payment status changed to PAID");
+      } else {
+        console.log(`⚠️ Still UNDERPAID: ${newRemainingAmount} $ remaining`);
+      }
+
+      await existingPayment.save();
+
+      // 6. Notes'ga qo'shish
+      if (existingPayment.notes) {
+        const notes = await Notes.findById(existingPayment.notes);
+        if (notes) {
+          notes.text += `\n\n💰 [${new Date().toLocaleDateString("uz-UZ")}] Qolgan qarz to'landi: ${paymentAmount} $`;
+          if (payData.notes) {
+            notes.text += `\nIzoh: ${payData.notes}`;
+          }
+          await notes.save();
+        }
+      }
+
+      // 7. Balance yangilash
+      await this.updateBalance(String(manager._id), {
+        dollar: payData.currencyDetails.dollar || 0,
+        sum: payData.currencyDetails.sum || 0,
+      });
+      console.log("✅ Balance updated");
+
+      // 8. Agar to'liq to'langan bo'lsa, Debtor'ni o'chirish
+      if (existingPayment.status === PaymentStatus.PAID && existingPayment.isPaid) {
+        const contract = await Contract.findOne({
+          payments: existingPayment._id,
+        });
+
+        if (contract) {
+          // Debtor'ni o'chirish
+          const deletedDebtors = await Debtor.deleteMany({
+            contractId: contract._id,
+          });
+          if (deletedDebtors.deletedCount > 0) {
+            console.log("🗑️ Debtor(s) deleted:", deletedDebtors.deletedCount);
+          }
+
+          // Contract completion tekshirish
+          await this.checkContractCompletion(String(contract._id));
+        }
+      }
+
+      console.log("✅ === PAY REMAINING COMPLETED ===");
+
+      return {
+        status: "success",
+        message: newRemainingAmount < 0.01
+          ? "Qolgan qarz to'liq to'landi"
+          : `Qolgan qarz qisman to'landi. Hali ${newRemainingAmount.toFixed(2)} $ qoldi`,
+        payment: {
+          _id: existingPayment._id,
+          actualAmount: existingPayment.actualAmount,
+          remainingAmount: existingPayment.remainingAmount,
+          status: existingPayment.status,
+          isPaid: existingPayment.isPaid,
+        },
+      };
+    } catch (error) {
+      console.error("❌ Error in payRemaining:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Shartnoma bo'yicha to'lov qilish (Dashboard - PAID darhol)
    * Requirements: 8.1, 8.2, 8.3, 8.4
    * 
@@ -533,7 +664,8 @@ class PaymentService {
 
       // 2. Payment yaratish - to'lov holati bilan
       const payment = await Payment.create({
-        amount: actualAmount,
+        amount: expectedAmount, // ✅ Kutilgan summa (oylik to'lov)
+        actualAmount: actualAmount, // ✅ Haqiqatda to'langan summa
         date: new Date(),
         isPaid: true, // ✅ Dashboard darhol tasdiqlaydi
         paymentType: PaymentType.MONTHLY,
@@ -706,7 +838,8 @@ class PaymentService {
 
       // 2. Payment yaratish - to'lov holati bilan
       const paymentDoc = await Payment.create({
-        amount: actualAmount,
+        amount: expectedAmount, // ✅ Kutilgan summa (oylik to'lov)
+        actualAmount: actualAmount, // ✅ Haqiqatda to'langan summa
         date: new Date(),
         isPaid: true, // ✅ Dashboard darhol tasdiqlaydi
         paymentType: PaymentType.MONTHLY,
@@ -787,6 +920,143 @@ class PaymentService {
       };
     } catch (error) {
       console.error("❌ Error in debtor payment:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Barcha to'lanmagan oylar uchun to'lovlarni yaratish
+   * Requirements: 8.1, 8.2, 8.3, 8.4
+   */
+  async payAllRemainingMonths(
+    payData: {
+      contractId: string;
+      amount: number;
+      notes?: string;
+      currencyDetails: { dollar: number; sum: number };
+      currencyCourse: number;
+    },
+    user: IJwtUser
+  ) {
+    try {
+      console.log("💰 === PAY ALL REMAINING MONTHS (DASHBOARD) ===");
+
+      const contract = await Contract.findById(payData.contractId).populate(
+        "customer"
+      );
+
+      if (!contract) {
+        throw BaseError.NotFoundError("Shartnoma topilmadi");
+      }
+
+      const manager = await Employee.findById(user.sub);
+
+      if (!manager) {
+        throw BaseError.NotFoundError("Manager topilmadi");
+      }
+
+      // 1. Barcha to'lovlarni olish
+      const allPayments = await Payment.find({
+        _id: { $in: contract.payments },
+      }).sort({ date: 1 });
+
+      // 2. To'langan oylik to'lovlar sonini hisoblash
+      const paidMonthlyPayments = allPayments.filter(
+        (p) => p.paymentType === PaymentType.MONTHLY && p.isPaid
+      );
+
+      const paidMonthsCount = paidMonthlyPayments.length;
+      const totalMonths = contract.period;
+      const remainingMonths = totalMonths - paidMonthsCount;
+
+      console.log("📊 Payment analysis:", {
+        totalMonths,
+        paidMonthsCount,
+        remainingMonths,
+        monthlyPayment: contract.monthlyPayment,
+      });
+
+      if (remainingMonths <= 0) {
+        throw BaseError.BadRequest("Barcha oylar allaqachon to'langan");
+      }
+
+      // 3. Har bir to'lanmagan oy uchun to'lov yaratish
+      const createdPayments = [];
+      const totalAmount = payData.amount;
+      const perMonthAmount = totalAmount / remainingMonths;
+
+      for (let i = 0; i < remainingMonths; i++) {
+        const monthNumber = paidMonthsCount + i + 1;
+
+        // Notes yaratish
+        const noteText = `${monthNumber}-oy to'lovi: ${perMonthAmount.toFixed(
+          2
+        )} $ (Barchasini to'lash orqali)`;
+        const notes = await Notes.create({
+          text: noteText,
+          customer: contract.customer,
+          createBy: String(manager._id),
+        });
+
+        // Payment yaratish
+        const payment = await Payment.create({
+          amount: contract.monthlyPayment,
+          actualAmount: perMonthAmount,
+          date: new Date(),
+          isPaid: true,
+          paymentType: PaymentType.MONTHLY,
+          customerId: contract.customer,
+          managerId: String(manager._id),
+          notes: notes._id,
+          status: PaymentStatus.PAID,
+          expectedAmount: contract.monthlyPayment,
+          confirmedAt: new Date(),
+          confirmedBy: user.sub,
+        });
+
+        createdPayments.push(payment);
+
+        // Contract.payments ga qo'shish
+        if (!contract.payments) {
+          contract.payments = [];
+        }
+        (contract.payments as any[]).push(payment._id);
+
+        console.log(
+          `✅ Payment created for month ${monthNumber}:`,
+          payment._id
+        );
+      }
+
+      await contract.save();
+
+      // 4. Balance yangilash
+      await this.updateBalance(String(manager._id), {
+        dollar: payData.currencyDetails.dollar || 0,
+        sum: payData.currencyDetails.sum || 0,
+      });
+      console.log("✅ Balance updated");
+
+      // 5. Debtor o'chirish
+      const deletedDebtors = await Debtor.deleteMany({
+        contractId: contract._id,
+      });
+      if (deletedDebtors.deletedCount > 0) {
+        console.log("🗑️ Debtor(s) deleted:", deletedDebtors.deletedCount);
+      }
+
+      // 6. Contract completion tekshirish
+      await this.checkContractCompletion(String(contract._id));
+
+      return {
+        status: "success",
+        message: `${remainingMonths} oylik to'lovlar muvaffaqiyatli amalga oshirildi`,
+        contractId: contract._id,
+        paymentsCreated: createdPayments.length,
+        totalAmount: totalAmount,
+      };
+    } catch (error) {
+      console.error("❌ Error in payAllRemainingMonths:", error);
       throw error;
     }
   }

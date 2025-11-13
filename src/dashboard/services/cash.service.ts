@@ -35,7 +35,14 @@ class CashService {
       const payments = await Payment.find({
         status: { $in: [PaymentStatus.PENDING, PaymentStatus.PAID] },
       })
-        .populate("customerId", "firstName lastName phoneNumber")
+        .populate({
+          path: "customerId",
+          select: "firstName lastName phoneNumber manager",
+          populate: {
+            path: "manager",
+            select: "firstName lastName",
+          },
+        })
         .populate("managerId", "firstName lastName")
         .populate("notes", "text")
         .select(

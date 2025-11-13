@@ -967,6 +967,7 @@ class ContractService {
               $project: {
                 _id: 1,
                 amount: 1,
+                actualAmount: 1, // ✅ Haqiqatda to'langan summa
                 date: 1,
                 isPaid: 1,
                 paymentType: 1,
@@ -974,7 +975,10 @@ class ContractService {
                 remainingAmount: 1,
                 excessAmount: 1,
                 expectedAmount: 1,
+                prepaidAmount: 1,
                 notes: 1,
+                confirmedAt: 1,
+                confirmedBy: 1,
               },
             },
           ],
