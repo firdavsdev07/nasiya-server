@@ -1,21 +1,21 @@
 import { Router } from "express";
 import { uploadCustomerFiles } from "../../middlewares/upload.middleware";
-import AuthMiddleware from "../../middlewares/auth.middleware";
+import { authenticate } from "../../middlewares/auth.middleware";
 import customerController from "../controllers/customer.controller";
 
 const router = Router();
 
-router.get("/get-new-all", AuthMiddleware, customerController.getAllNew);
+router.get("/get-new-all", authenticate, customerController.getAllNew);
 
-router.get("/get-one/:id", AuthMiddleware, customerController.getOne);
+router.get("/get-one/:id", authenticate, customerController.getOne);
 
 router.put(
   "/:id",
-  AuthMiddleware,
+  authenticate,
   uploadCustomerFiles,
   customerController.update
 );
 
-router.post("", AuthMiddleware, uploadCustomerFiles, customerController.create);
+router.post("", authenticate, uploadCustomerFiles, customerController.create);
 
 export default router;

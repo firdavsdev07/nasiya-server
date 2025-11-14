@@ -127,6 +127,22 @@ app.get("/health/ready", readinessProbe);
 // Metrics endpoint
 app.get("/api/metrics", getMetrics);
 
+// Global request logger
+app.use((req, res, next) => {
+  if (req.path.includes("/payment/pay-all-remaining") || req.path.includes("/payment/contract")) {
+    console.log("🌐 === INCOMING REQUEST ===");
+    console.log("📍 Path:", req.path);
+    console.log("🔧 Method:", req.method);
+    console.log("📦 Body:", JSON.stringify(req.body, null, 2));
+    console.log("🔑 Headers:", {
+      contentType: req.headers["content-type"],
+      authorization: req.headers.authorization?.substring(0, 30) + "...",
+    });
+    console.log("========================");
+  }
+  next();
+});
+
 app.use("/upl", uploadsCsv);
 app.use("/api", routes);
 app.use("/api/seller", routesSeller);

@@ -1,37 +1,42 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import BaseError from "../utils/base.error";
 import jwt from "../utils/jwt";
-import employeeService from "../dashboard/services/employee.service";
-// import userService from "../dashboard/services/user.service";
 
-const AuthMiddleware = async (
+export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const auth = req.headers.authorization;
+
+    console.log("🔐 Authentication check:", {
+      hasAuth: !!auth,
+      authHeader: auth?.substring(0, 20) + "...",
+    });
+
     if (!auth) {
-      return next(BaseError.UnauthorizedError());
-    }
-    const accressToken = auth.split(" ")[1];
-    if (!accressToken) {
-      return next(BaseError.UnauthorizedError());
-    }
-    const userData = jwt.validateAccessToken(accressToken);
-    if (!userData) {
-      return next(BaseError.UnauthorizedError());
+      console.error("❌ No authorization header");
+      return next(BaseError.UnauthorizedError("Authorization header yo'q"));
     }
 
-    const user = await employeeService.findUserById(userData.sub);
-    if (!user) {
-      return next(BaseError.BadRequest("User does not exist"));
+    const accessToken = auth.split(" ")[1];
+    if (!accessToken) {
+      console.error("❌ No access token");
+      return next(BaseError.UnauthorizedError("Access token yo'q"));
+    }
+
+    const userData = jwt.validateAccessToken(accessToken);
+    if (!userData) {
+      console.error("❌ Invalid access token");
+      return next(BaseError.UnauthorizedError("Token yaroqsiz"));
     }
 
     req.user = userData;
+    console.log("✅ User authenticated:", userData.name);
     next();
   } catch (error) {
-    return next(BaseError.UnauthorizedError());
+    console.error("❌ Authentication error:", error);
+    return next(BaseError.UnauthorizedError("Autentifikatsiya xatosi"));
   }
 };
-export default AuthMiddleware;
