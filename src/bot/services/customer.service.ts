@@ -356,6 +356,22 @@ class CustomerService {
                 amount: "$payment.amount",
                 date: "$payment.date",
                 isPaid: "$payment.isPaid",
+                paymentType: "$payment.paymentType", // ✅ To'lov turini qo'shish
+              },
+            },
+          },
+          // ✅ YANGI: To'langan oylar sonini hisoblash
+          paidMonthsCount: {
+            $size: {
+              $filter: {
+                input: "$paymentDetails",
+                as: "p",
+                cond: {
+                  $and: [
+                    { $eq: ["$p.isPaid", true] },
+                    { $ne: ["$p.paymentType", "initial"] },
+                  ],
+                },
               },
             },
           },
@@ -364,8 +380,11 @@ class CustomerService {
     ]);
 
     console.log("📋 All Contracts:", allContracts.map(c => ({
+      _id: c._id,
       productName: c.productName,
       nextPaymentDate: c.nextPaymentDate,
+      nextPaymentDateType: typeof c.nextPaymentDate,
+      nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
     })));
@@ -450,8 +469,11 @@ class CustomerService {
     ]);
 
     console.log("📋 Debtor Contracts:", debtorContractsRaw.map(c => ({
+      _id: c._id,
       productName: c.productName,
       nextPaymentDate: c.nextPaymentDate,
+      nextPaymentDateType: typeof c.nextPaymentDate,
+      nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
       isPaid: c.isPaid,
