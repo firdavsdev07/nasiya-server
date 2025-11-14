@@ -480,6 +480,25 @@ class CustomerService {
               },
             },
           },
+          // ✅ YANGI: To'langan to'lovlar arrayni qo'shish
+          payments: {
+            $map: {
+              input: {
+                $filter: {
+                  input: "$paymentDetails",
+                  as: "p",
+                  cond: { $eq: ["$p.isPaid", true] },
+                },
+              },
+              as: "payment",
+              in: {
+                amount: "$payment.amount",
+                date: "$payment.date",
+                isPaid: "$payment.isPaid",
+                paymentType: "$payment.paymentType",
+              },
+            },
+          },
         },
       },
     ]);
