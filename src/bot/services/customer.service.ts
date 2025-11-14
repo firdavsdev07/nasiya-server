@@ -360,6 +360,21 @@ class CustomerService {
               },
             },
           },
+          // ✅ YANGI: To'langan oylar sonini hisoblash
+          paidMonthsCount: {
+            $size: {
+              $filter: {
+                input: "$paymentDetails",
+                as: "p",
+                cond: {
+                  $and: [
+                    { $eq: ["$p.isPaid", true] },
+                    { $ne: ["$p.paymentType", "initial"] },
+                  ],
+                },
+              },
+            },
+          },
         },
       },
     ]);
