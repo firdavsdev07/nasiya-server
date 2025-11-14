@@ -247,6 +247,14 @@ class PaymentService {
         throw BaseError.NotFoundError("To'lov topilmadi");
       }
 
+      console.log("📦 Payment details:", {
+        id: payment._id,
+        amount: payment.amount,
+        paymentType: payment.paymentType,
+        isPaid: payment.isPaid,
+        status: payment.status,
+      });
+
       if (payment.isPaid) {
         throw BaseError.BadRequest("To'lov allaqachon tasdiqlangan");
       }
@@ -275,12 +283,66 @@ class PaymentService {
         contract.payments = [];
       }
       (contract.payments as string[]).push(payment._id.toString());
-      await contract.save();
 
       console.log("✅ Payment added to contract:", contract._id);
 
-      // 4. Balance yangilash (FAQAT BU YERDA - kassa tasdiqlanganda)
-      // Payment yaratilganda currencyDetails saqlanmagan, shuning uchun amount'ni dollar sifatida qo'shamiz
+      // 4. nextPaymentDate ni keyingi oyga o'tkazish (faqat oylik to'lovlar uchun)
+      console.log("🔍 Checking nextPaymentDate update conditions:", {
+        hasNextPaymentDate: !!contract.nextPaymentDate,
+        paymentType: payment.paymentType,
+        isMonthly: payment.paymentType === PaymentType.MONTHLY,
+        PaymentTypeEnum: PaymentType.MONTHLY,
+      });
+
+      if (contract.nextPaymentDate && payment.paymentType === PaymentType.MONTHLY) {
+        const currentDate = new Date(contract.nextPaymentDate);
+
+        // ✅ To'lov sanasi har doim bir xil kun bo'lib turishi kerak
+        // Masalan: 10-Dekabr → 10-Yanvar (qachon to'lasangiz ham)
+        const nextMonth = new Date(currentDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        console.log("📅 BEFORE UPDATE:", {
+          currentNextPaymentDate: contract.nextPaymentDate,
+          currentNextPaymentDateISO: contract.nextPaymentDate.toISOString(),
+          newNextPaymentDate: nextMonth,
+          newNextPaymentDateISO: nextMonth.toISOString(),
+        });
+
+        contract.nextPaymentDate = nextMonth;
+
+        // Agar kechiktirilgan bo'lsa, tozalash
+        if (contract.previousPaymentDate) {
+          contract.previousPaymentDate = undefined;
+          contract.postponedAt = undefined;
+        }
+
+        console.log("📅 AFTER UPDATE (before save):", {
+          nextPaymentDate: contract.nextPaymentDate,
+          nextPaymentDateISO: contract.nextPaymentDate.toISOString(),
+          previousPaymentDate: contract.previousPaymentDate,
+        });
+      } else {
+        console.log("⏭️ Skipping nextPaymentDate update - conditions not met:", {
+          hasNextPaymentDate: !!contract.nextPaymentDate,
+          paymentType: payment.paymentType,
+          expectedType: PaymentType.MONTHLY,
+        });
+      }
+
+      // Contract'ni saqlash (payments va nextPaymentDate)
+      await contract.save();
+      console.log("💾 Contract saved with updated nextPaymentDate");
+
+      // ✅ VERIFY: Database'dan qayta o'qib tekshirish
+      const verifyContract = await Contract.findById(contract._id).select('nextPaymentDate previousPaymentDate');
+      console.log("🔍 VERIFY - Database'dagi qiymat:", {
+        nextPaymentDate: verifyContract?.nextPaymentDate,
+        nextPaymentDateISO: verifyContract?.nextPaymentDate?.toISOString(),
+        previousPaymentDate: verifyContract?.previousPaymentDate,
+      });
+
+      // 5. Balance yangilash (FAQAT BU YERDA - kassa tasdiqlanganda)
       await this.updateBalance(payment.managerId, {
         dollar: payment.amount,
         sum: 0,
@@ -288,7 +350,7 @@ class PaymentService {
 
       console.log("💵 Balance updated for manager:", payment.managerId);
 
-      // 5. Agar Debtor mavjud bo'lsa, o'chirish (kassa tasdiqlanganda)
+      // 6. Agar Debtor mavjud bo'lsa, o'chirish (kassa tasdiqlanganda)
       const deletedDebtors = await Debtor.deleteMany({
         contractId: contract._id,
       });
@@ -297,7 +359,7 @@ class PaymentService {
         console.log("🗑️ Debtor(s) deleted:", deletedDebtors.deletedCount);
       }
 
-      // 6. Shartnoma to'liq to'langanini tekshirish
+      // 7. Shartnoma to'liq to'langanini tekshirish
       await this.checkContractCompletion(String(contract._id));
 
       return {
@@ -340,6 +402,29 @@ class PaymentService {
       if (payment.notes) {
         payment.notes.text += `\n[RAD ETILDI: ${reason}]`;
         await payment.notes.save();
+      }
+
+      // 3. ✅ YANGI: nextPaymentDate ni eski sanaga qaytarish
+      // (Chunki botda to'lov qilinganda darhol yangilangan edi)
+      if (payment.paymentType === PaymentType.MONTHLY) {
+        const contract = await Contract.findOne({
+          customer: payment.customerId,
+          status: ContractStatus.ACTIVE,
+        });
+
+        if (contract && contract.nextPaymentDate) {
+          const currentDate = new Date(contract.nextPaymentDate);
+          const previousMonth = new Date(currentDate);
+          previousMonth.setMonth(previousMonth.getMonth() - 1);
+
+          contract.nextPaymentDate = previousMonth;
+          await contract.save();
+
+          console.log("🔙 nextPaymentDate rolled back:", {
+            current: currentDate.toLocaleDateString("uz-UZ"),
+            rolledBack: previousMonth.toLocaleDateString("uz-UZ"),
+          });
+        }
       }
 
       console.log("✅ Payment rejected:", payment._id);

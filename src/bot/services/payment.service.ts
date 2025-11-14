@@ -78,6 +78,30 @@ class PaymentSrvice {
     console.log("✅ Payment created (PENDING - Bot):", paymentDoc._id);
     console.log("⏳ Waiting for cash confirmation...");
 
+    // ✅ YANGI: nextPaymentDate ni DARHOL yangilash (botda ko'rish uchun)
+    if (contract && contract.nextPaymentDate) {
+      const currentDate = new Date(contract.nextPaymentDate);
+
+      // ✅ To'lov sanasi har doim bir xil kun bo'lib turishi kerak
+      // Masalan: 10-Dekabr → 10-Yanvar (qachon to'lasangiz ham)
+      const nextMonth = new Date(currentDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      contract.nextPaymentDate = nextMonth;
+
+      // Agar kechiktirilgan bo'lsa, tozalash
+      if (contract.previousPaymentDate) {
+        contract.previousPaymentDate = undefined;
+        contract.postponedAt = undefined;
+      }
+
+      await contract.save();
+      console.log("📅 nextPaymentDate updated immediately (Bot):", {
+        old: currentDate.toLocaleDateString("uz-UZ"),
+        new: nextMonth.toLocaleDateString("uz-UZ"),
+      });
+    }
+
     // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
     // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
     // ❌ Debtor o'chirilmaydi - faqat kassa tasdiqlanganda
@@ -130,6 +154,30 @@ class PaymentSrvice {
 
     console.log("✅ Payment created (PENDING - Bot):", paymentDoc._id);
     console.log("⏳ Waiting for cash confirmation...");
+
+    // ✅ YANGI: nextPaymentDate ni DARHOL yangilash (botda ko'rish uchun)
+    if (existingContract && existingContract.nextPaymentDate) {
+      const currentDate = new Date(existingContract.nextPaymentDate);
+
+      // ✅ To'lov sanasi har doim bir xil kun bo'lib turishi kerak
+      // Masalan: 10-Dekabr → 10-Yanvar (qachon to'lasangiz ham)
+      const nextMonth = new Date(currentDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      existingContract.nextPaymentDate = nextMonth;
+
+      // Agar kechiktirilgan bo'lsa, tozalash
+      if (existingContract.previousPaymentDate) {
+        existingContract.previousPaymentDate = undefined;
+        existingContract.postponedAt = undefined;
+      }
+
+      await existingContract.save();
+      console.log("📅 nextPaymentDate updated immediately (Bot):", {
+        old: currentDate.toLocaleDateString("uz-UZ"),
+        new: nextMonth.toLocaleDateString("uz-UZ"),
+      });
+    }
 
     // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
     // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
