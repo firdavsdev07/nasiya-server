@@ -28,12 +28,21 @@ class CashService {
         totalPaid: paidCount,
       });
 
-      // ✅ PAID va PENDING statusdagi to'lovlarni olish
+      // ✅ BARCHA statusdagi to'lovlarni olish (REJECTED dan tashqari)
       // Kassa sahifasida barcha to'lovlar ko'rinishi kerak (audit uchun)
-      // status: PENDING - hali tasdiqlanmagan (dashboard'dan)
-      // status: PAID - allaqachon tasdiqlangan (bot'dan yoki dashboard'dan)
+      // status: PENDING - hali tasdiqlanmagan (bot'dan)
+      // status: PAID - to'liq to'langan
+      // status: UNDERPAID - kam to'langan
+      // status: OVERPAID - ko'p to'langan
       const payments = await Payment.find({
-        status: { $in: [PaymentStatus.PENDING, PaymentStatus.PAID] },
+        status: {
+          $in: [
+            PaymentStatus.PENDING,
+            PaymentStatus.PAID,
+            PaymentStatus.UNDERPAID,
+            PaymentStatus.OVERPAID
+          ]
+        },
       })
         .populate({
           path: "customerId",
@@ -46,7 +55,7 @@ class CashService {
         .populate("managerId", "firstName lastName")
         .populate("notes", "text")
         .select(
-          "_id amount date isPaid paymentType notes customerId managerId status remainingAmount excessAmount expectedAmount confirmedAt confirmedBy createdAt updatedAt"
+          "_id amount actualAmount date isPaid paymentType notes customerId managerId status remainingAmount excessAmount expectedAmount confirmedAt confirmedBy createdAt updatedAt"
         )
         .sort({ date: -1 })
         .lean();
