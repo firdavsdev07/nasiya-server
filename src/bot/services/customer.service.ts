@@ -387,6 +387,7 @@ class CustomerService {
       nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
+      paidMonthsCount: c.paidMonthsCount,  // ✅ Log qo'shish
     })));
 
     const debtorContractsRaw = await Debtor.aggregate([
@@ -464,6 +465,21 @@ class CustomerService {
           postponedAt: "$contract.postponedAt", // ✅ Qachon kechiktirilgan
           debtorId: "$_id",
           isPaid: 1,
+          // ✅ YANGI: To'langan oylar sonini hisoblash
+          paidMonthsCount: {
+            $size: {
+              $filter: {
+                input: "$paymentDetails",
+                as: "p",
+                cond: {
+                  $and: [
+                    { $eq: ["$p.isPaid", true] },
+                    { $ne: ["$p.paymentType", "initial"] },
+                  ],
+                },
+              },
+            },
+          },
         },
       },
     ]);
@@ -477,6 +493,7 @@ class CustomerService {
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
       isPaid: c.isPaid,
+      paidMonthsCount: c.paidMonthsCount,  // ✅ Log qo'shish
     })));
 
     const paidContracts = debtorContractsRaw.filter((c) => c.isPaid === true);
