@@ -399,7 +399,14 @@ class CustomerService {
       nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
-      paidMonthsCount: c.paidMonthsCount,  // ✅ Log qo'shish
+      paidMonthsCount: c.paidMonthsCount,
+      durationMonths: c.durationMonths,
+      paymentsCount: c.payments?.length || 0,
+      payments: c.payments?.map((p: any) => ({
+        paymentType: p.paymentType,
+        isPaid: p.isPaid,
+        amount: p.amount,
+      })),
     })));
 
     const debtorContractsRaw = await Debtor.aggregate([
@@ -536,7 +543,14 @@ class CustomerService {
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
       isPaid: c.isPaid,
-      paidMonthsCount: c.paidMonthsCount,  // ✅ Log qo'shish
+      paidMonthsCount: c.paidMonthsCount,
+      durationMonths: c.durationMonths,
+      paymentsCount: c.payments?.length || 0,
+      payments: c.payments?.map((p: any) => ({
+        paymentType: p.paymentType,
+        isPaid: p.isPaid,
+        amount: p.amount,
+      })),
     })));
 
     const paidContracts = debtorContractsRaw.filter((c) => c.isPaid === true);
