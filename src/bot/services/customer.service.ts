@@ -1,9 +1,7 @@
 import Contract from "../../schemas/contract.schema";
 import Customer from "../../schemas/customer.schema";
-import Employee from "../../schemas/employee.schema";
 import IJwtUser from "../../types/user";
 
-import Payment from "../../schemas/payment.schema";
 import { Debtor } from "../../schemas/debtor.schema";
 import BaseError from "../../utils/base.error";
 import { Types } from "mongoose";
@@ -237,10 +235,10 @@ class CustomerService {
                   as: "debtor",
                   in: {
                     $cond: [
-                      { $lt: ["$$debtor.dueDate", new Date()] },
+                      { $lt: ["$debtor.dueDate", new Date()] },
                       {
                         $dateDiff: {
-                          startDate: "$$debtor.dueDate",
+                          startDate: "$debtor.dueDate",
                           endDate: new Date(),
                           unit: "day",
                         },
@@ -310,7 +308,12 @@ class CustomerService {
                   $filter: {
                     input: "$paymentDetails",
                     as: "p",
-                    cond: { $eq: ["$$p.isPaid", true] },
+                    cond: {
+                      $or: [
+                        { $eq: ["$$p.isPaid", true] },
+                        { $eq: ["$$p.status", "PAID"] }
+                      ]
+                    },
                   },
                 },
                 as: "pp",
@@ -365,8 +368,14 @@ class CustomerService {
                 as: "p",
                 cond: {
                   $and: [
-                    { $eq: ["$$p.isPaid", true] },
+                    {
+                      $or: [
+                        { $eq: ["$$p.isPaid", true] },
+                        { $eq: ["$$p.status", "PAID"] }
+                      ]
+                    },
                     { $ne: ["$$p.paymentType", "initial"] },
+                    { $ne: ["$$p.paymentType", "extra"] }
                   ],
                 },
               },
@@ -377,18 +386,32 @@ class CustomerService {
       },
     ]);
 
-    console.log("📋 All Contracts:", allContracts.map(c => ({
-      _id: c._id,
-      productName: c.productName,
-      paidMonthsCount: c.paidMonthsCount,
-      durationMonths: c.durationMonths,
-      paymentsCount: c.payments?.length || 0,
-      payments: c.payments?.map((p: any) => ({
+    console.log("📋 All Contracts COUNT:", allContracts.length);
+
+    if (allContracts.length > 0) {
+      console.log("📋 First Contract Details:", {
+        _id: allContracts[0]._id,
+        productName: allContracts[0].productName,
+        initialPayment: allContracts[0].initialPayment,
+        initialPaymentDueDate: allContracts[0].initialPaymentDueDate,
+        monthlyPayment: allContracts[0].monthlyPayment,
+        period: allContracts[0].period,
+        paidMonthsCount: allContracts[0].paidMonthsCount,
+        durationMonths: allContracts[0].durationMonths,
+        paymentsCount: allContracts[0].payments?.length || 0,
+        paymentsIsNull: allContracts[0].payments === null,
+        paymentsIsUndefined: allContracts[0].payments === undefined,
+      });
+
+      console.log("📋 Payments Array:", allContracts[0].payments?.map((p: any) => ({
+        _id: p._id,
         paymentType: p.paymentType,
         isPaid: p.isPaid,
+        status: p.status,
         amount: p.amount,
-      })),
-    })));
+        date: p.date,
+      })));
+    }
 
     const debtorContractsRaw = await Debtor.aggregate([
       {
@@ -430,7 +453,12 @@ class CustomerService {
                       $filter: {
                         input: "$paymentDetails",
                         as: "p",
-                        cond: { $eq: ["$$p.isPaid", true] },
+                        cond: {
+                          $or: [
+                            { $eq: ["$$p.isPaid", true] },
+                            { $eq: ["$$p.status", "PAID"] }
+                          ]
+                        },
                       },
                     },
                     as: "pp",
@@ -474,8 +502,14 @@ class CustomerService {
                 as: "p",
                 cond: {
                   $and: [
-                    { $eq: ["$$p.isPaid", true] },
+                    {
+                      $or: [
+                        { $eq: ["$$p.isPaid", true] },
+                        { $eq: ["$$p.status", "PAID"] }
+                      ]
+                    },
                     { $ne: ["$$p.paymentType", "initial"] },
+                    { $ne: ["$$p.paymentType", "extra"] }
                   ],
                 },
               },
@@ -528,14 +562,28 @@ class CustomerService {
       debtorContractsCount: debtorContracts.length,
     });
 
-    return {
+    // ✅ Ma'lumotlar null yoki undefined emasligini tekshirish
+    const response = {
       status: "success",
       data: {
-        allContracts,
-        paidContracts,
-        debtorContracts,
+        allContracts: allContracts || [],
+        paidContracts: paidContracts || [],
+        debtorContracts: debtorContracts || [],
       },
     };
+
+    console.log("📤 SENDING RESPONSE:", {
+      hasAllContracts: !!response.data.allContracts,
+      allContractsLength: response.data.allContracts.length,
+      firstContract: response.data.allContracts[0] ? {
+        _id: response.data.allContracts[0]._id,
+        paidMonthsCount: response.data.allContracts[0].paidMonthsCount,
+        durationMonths: response.data.allContracts[0].durationMonths,
+        paymentsCount: response.data.allContracts[0].payments?.length,
+      } : null,
+    });
+
+    return response;
   }
 }
 
