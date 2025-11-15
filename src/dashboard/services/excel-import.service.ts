@@ -265,8 +265,7 @@ class ExcelImportService {
         const remainder = payment.amount - monthsCount * expectedMonthlyPayment;
 
         console.log(
-          `  💰 Large payment detected: ${
-            payment.amount
+          `  💰 Large payment detected: ${payment.amount
           }$ = ${monthsCount} oy + ${remainder.toFixed(2)}$ qoldiq`
         );
 
@@ -299,8 +298,7 @@ class ExcelImportService {
           paymentIds.push(paymentDoc._id);
 
           console.log(
-            `    ✓ Payment ${
-              i + 1
+            `    ✓ Payment ${i + 1
             }/${monthsCount}: ${monthStr}/${yearNum} - ${expectedMonthlyPayment}$`
           );
         }
