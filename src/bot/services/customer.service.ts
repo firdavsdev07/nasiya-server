@@ -352,21 +352,21 @@ class CustomerService {
                 $filter: {
                   input: "$paymentDetails",
                   as: "p",
-                  cond: { $eq: ["$p.isPaid", true] },
+                  cond: { $eq: ["$$p.isPaid", true] },
                 },
               },
               as: "payment",
               in: {
-                _id: "$payment._id",
-                amount: "$payment.amount",
-                actualAmount: "$payment.actualAmount",
-                date: "$payment.date",
-                isPaid: "$payment.isPaid",
-                paymentType: "$payment.paymentType",
-                status: "$payment.status",
-                remainingAmount: "$payment.remainingAmount",
-                excessAmount: "$payment.excessAmount",
-                expectedAmount: "$payment.expectedAmount",
+                _id: "$$payment._id",
+                amount: "$$payment.amount",
+                actualAmount: "$$payment.actualAmount",
+                date: "$$payment.date",
+                isPaid: "$$payment.isPaid",
+                paymentType: "$$payment.paymentType",
+                status: "$$payment.status",
+                remainingAmount: "$$payment.remainingAmount",
+                excessAmount: "$$payment.excessAmount",
+                expectedAmount: "$$payment.expectedAmount",
               },
             },
           },
@@ -378,8 +378,8 @@ class CustomerService {
                 as: "p",
                 cond: {
                   $and: [
-                    { $eq: ["$p.isPaid", true] },
-                    { $ne: ["$p.paymentType", "initial"] },
+                    { $eq: ["$$p.isPaid", true] },
+                    { $ne: ["$$p.paymentType", "initial"] },
                   ],
                 },
               },
@@ -399,7 +399,14 @@ class CustomerService {
       nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
-      paidMonthsCount: c.paidMonthsCount,  // ✅ Log qo'shish
+      paidMonthsCount: c.paidMonthsCount,
+      durationMonths: c.durationMonths,
+      paymentsCount: c.payments?.length || 0,
+      payments: c.payments?.map((p: any) => ({
+        paymentType: p.paymentType,
+        isPaid: p.isPaid,
+        amount: p.amount,
+      })),
     })));
 
     const debtorContractsRaw = await Debtor.aggregate([
@@ -489,8 +496,8 @@ class CustomerService {
                 as: "p",
                 cond: {
                   $and: [
-                    { $eq: ["$p.isPaid", true] },
-                    { $ne: ["$p.paymentType", "initial"] },
+                    { $eq: ["$$p.isPaid", true] },
+                    { $ne: ["$$p.paymentType", "initial"] },
                   ],
                 },
               },
@@ -505,21 +512,21 @@ class CustomerService {
                 $filter: {
                   input: "$paymentDetails",
                   as: "p",
-                  cond: { $eq: ["$p.isPaid", true] },
+                  cond: { $eq: ["$$p.isPaid", true] },
                 },
               },
               as: "payment",
               in: {
-                _id: "$payment._id",
-                amount: "$payment.amount",
-                actualAmount: "$payment.actualAmount",
-                date: "$payment.date",
-                isPaid: "$payment.isPaid",
-                paymentType: "$payment.paymentType",
-                status: "$payment.status",
-                remainingAmount: "$payment.remainingAmount",
-                excessAmount: "$payment.excessAmount",
-                expectedAmount: "$payment.expectedAmount",
+                _id: "$$payment._id",
+                amount: "$$payment.amount",
+                actualAmount: "$$payment.actualAmount",
+                date: "$$payment.date",
+                isPaid: "$$payment.isPaid",
+                paymentType: "$$payment.paymentType",
+                status: "$$payment.status",
+                remainingAmount: "$$payment.remainingAmount",
+                excessAmount: "$$payment.excessAmount",
+                expectedAmount: "$$payment.expectedAmount",
               },
             },
           },
@@ -536,7 +543,14 @@ class CustomerService {
       previousPaymentDate: c.previousPaymentDate,
       postponedAt: c.postponedAt,
       isPaid: c.isPaid,
-      paidMonthsCount: c.paidMonthsCount,  // ✅ Log qo'shish
+      paidMonthsCount: c.paidMonthsCount,
+      durationMonths: c.durationMonths,
+      paymentsCount: c.payments?.length || 0,
+      payments: c.payments?.map((p: any) => ({
+        paymentType: p.paymentType,
+        isPaid: p.isPaid,
+        amount: p.amount,
+      })),
     })));
 
     const paidContracts = debtorContractsRaw.filter((c) => c.isPaid === true);
