@@ -339,6 +339,10 @@ class CustomerService {
           totalPaid: 1,
           remainingDebt: 1,
           monthlyPayment: 1,
+          startDate: 1, // ✅ Shartnoma boshlanish sanasi
+          initialPayment: 1, // ✅ Boshlang'ich to'lov
+          initialPaymentDueDate: 1, // ✅ Boshlang'ich to'lov sanasi
+          period: 1, // ✅ Muddat (oylar)
           nextPaymentDate: 1, // ✅ Keyingi to'lov sanasi
           previousPaymentDate: 1, // ✅ Kechiktirilgan eski sana
           postponedAt: 1, // ✅ Qachon kechiktirilgan
@@ -353,10 +357,16 @@ class CustomerService {
               },
               as: "payment",
               in: {
+                _id: "$payment._id",
                 amount: "$payment.amount",
+                actualAmount: "$payment.actualAmount",
                 date: "$payment.date",
                 isPaid: "$payment.isPaid",
-                paymentType: "$payment.paymentType", // ✅ To'lov turini qo'shish
+                paymentType: "$payment.paymentType",
+                status: "$payment.status",
+                remainingAmount: "$payment.remainingAmount",
+                excessAmount: "$payment.excessAmount",
+                expectedAmount: "$payment.expectedAmount",
               },
             },
           },
@@ -375,6 +385,8 @@ class CustomerService {
               },
             },
           },
+          // ✅ YANGI: Umumiy muddat (oylar)
+          durationMonths: "$period",
         },
       },
     ]);
@@ -460,6 +472,10 @@ class CustomerService {
           totalPaid: 1,
           remainingDebt: 1,
           monthlyPayment: "$contract.monthlyPayment",
+          startDate: "$contract.startDate", // ✅ Shartnoma boshlanish sanasi
+          initialPayment: "$contract.initialPayment", // ✅ Boshlang'ich to'lov
+          initialPaymentDueDate: "$contract.initialPaymentDueDate", // ✅ Boshlang'ich to'lov sanasi
+          period: "$contract.period", // ✅ Muddat (oylar)
           nextPaymentDate: "$contract.nextPaymentDate", // ✅ Keyingi to'lov sanasi
           previousPaymentDate: "$contract.previousPaymentDate", // ✅ Kechiktirilgan eski sana
           postponedAt: "$contract.postponedAt", // ✅ Qachon kechiktirilgan
@@ -477,6 +493,33 @@ class CustomerService {
                     { $ne: ["$p.paymentType", "initial"] },
                   ],
                 },
+              },
+            },
+          },
+          // ✅ YANGI: Umumiy muddat (oylar)
+          durationMonths: "$contract.period",
+          // ✅ YANGI: To'langan to'lovlar arrayni qo'shish
+          payments: {
+            $map: {
+              input: {
+                $filter: {
+                  input: "$paymentDetails",
+                  as: "p",
+                  cond: { $eq: ["$p.isPaid", true] },
+                },
+              },
+              as: "payment",
+              in: {
+                _id: "$payment._id",
+                amount: "$payment.amount",
+                actualAmount: "$payment.actualAmount",
+                date: "$payment.date",
+                isPaid: "$payment.isPaid",
+                paymentType: "$payment.paymentType",
+                status: "$payment.status",
+                remainingAmount: "$payment.remainingAmount",
+                excessAmount: "$payment.excessAmount",
+                expectedAmount: "$payment.expectedAmount",
               },
             },
           },
