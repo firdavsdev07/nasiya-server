@@ -83,12 +83,10 @@ class CustomerService {
             firstName: { $first: "$customer.firstName" },
             lastName: { $first: "$customer.lastName" },
             phoneNumber: { $first: "$customer.phoneNumber" },
-            // Eng katta kechikish kunini olish (bir mijozning bir nechta qarzdorligi bo'lishi mumkin)
             delayDays: { $max: "$delayDays" },
           },
         },
 
-        // Kechikish bo'yicha saralash (eng ko'p kechikkanlar birinchi)
         { $sort: { delayDays: -1 } },
       ]);
 
@@ -179,7 +177,7 @@ class CustomerService {
                 $match: {
                   $expr: {
                     $and: [
-                      { $eq: ["$customerId", "$$customerId"] },
+                      { $eq: ["$customerId", "$customerId"] },
                       { $eq: ["$isPaid", true] },
                     ],
                   },
@@ -194,7 +192,6 @@ class CustomerService {
             totalDebt: {
               $sum: "$contracts.totalPrice",
             },
-            // ✅ TO'G'RI: payments array'da allaqachon initialPayment bor
             totalPaid: {
               $sum: "$payments.amount",
             },
@@ -207,7 +204,6 @@ class CustomerService {
             },
           },
         },
-        // Debtor'larni topish (kechikish kunlari uchun)
         {
           $lookup: {
             from: "debtors",
@@ -216,7 +212,7 @@ class CustomerService {
               {
                 $match: {
                   $expr: {
-                    $in: ["$contractId", "$$contractIds"],
+                    $in: ["$contractId", "$contractIds"],
                   },
                 },
               },
@@ -232,7 +228,6 @@ class CustomerService {
             as: "debtors",
           },
         },
-        // Eng katta kechikish kunini hisoblash
         {
           $addFields: {
             delayDays: {
@@ -308,7 +303,6 @@ class CustomerService {
       {
         $addFields: {
           totalDebt: "$totalPrice",
-          // ✅ TO'G'RI: payments array'da allaqachon initialPayment bor
           totalPaid: {
             $sum: {
               $map: {
@@ -339,22 +333,16 @@ class CustomerService {
           totalPaid: 1,
           remainingDebt: 1,
           monthlyPayment: 1,
-          startDate: 1, // ✅ Shartnoma boshlanish sanasi
-          initialPayment: 1, // ✅ Boshlang'ich to'lov
-          initialPaymentDueDate: 1, // ✅ Boshlang'ich to'lov sanasi
-          period: 1, // ✅ Muddat (oylar)
-          nextPaymentDate: 1, // ✅ Keyingi to'lov sanasi
-          previousPaymentDate: 1, // ✅ Kechiktirilgan eski sana
-          postponedAt: 1, // ✅ Qachon kechiktirilgan
+          startDate: 1,
+          initialPayment: 1,
+          initialPaymentDueDate: 1,
+          period: 1,
+          nextPaymentDate: 1,
+          previousPaymentDate: 1,
+          postponedAt: 1,
           payments: {
             $map: {
-              input: {
-                $filter: {
-                  input: "$paymentDetails",
-                  as: "p",
-                  cond: { $eq: ["$$p.isPaid", true] },
-                },
-              },
+              input: "$paymentDetails",
               as: "payment",
               in: {
                 _id: "$$payment._id",
@@ -370,7 +358,6 @@ class CustomerService {
               },
             },
           },
-          // ✅ YANGI: To'langan oylar sonini hisoblash
           paidMonthsCount: {
             $size: {
               $filter: {
@@ -385,7 +372,6 @@ class CustomerService {
               },
             },
           },
-          // ✅ YANGI: Umumiy muddat (oylar)
           durationMonths: "$period",
         },
       },
@@ -394,11 +380,6 @@ class CustomerService {
     console.log("📋 All Contracts:", allContracts.map(c => ({
       _id: c._id,
       productName: c.productName,
-      nextPaymentDate: c.nextPaymentDate,
-      nextPaymentDateType: typeof c.nextPaymentDate,
-      nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
-      previousPaymentDate: c.previousPaymentDate,
-      postponedAt: c.postponedAt,
       paidMonthsCount: c.paidMonthsCount,
       durationMonths: c.durationMonths,
       paymentsCount: c.payments?.length || 0,
@@ -440,8 +421,6 @@ class CustomerService {
             $eq: [{ $ifNull: ["$payment.isPaid", false] }, true],
           },
           totalDebt: "$contract.totalPrice",
-          // ✅ TO'G'RI: payments array'da allaqachon initialPayment bor
-          // Debtor'dagi payment faqat joriy oylik to'lov
           totalPaid: {
             $add: [
               {
@@ -479,16 +458,15 @@ class CustomerService {
           totalPaid: 1,
           remainingDebt: 1,
           monthlyPayment: "$contract.monthlyPayment",
-          startDate: "$contract.startDate", // ✅ Shartnoma boshlanish sanasi
-          initialPayment: "$contract.initialPayment", // ✅ Boshlang'ich to'lov
-          initialPaymentDueDate: "$contract.initialPaymentDueDate", // ✅ Boshlang'ich to'lov sanasi
-          period: "$contract.period", // ✅ Muddat (oylar)
-          nextPaymentDate: "$contract.nextPaymentDate", // ✅ Keyingi to'lov sanasi
-          previousPaymentDate: "$contract.previousPaymentDate", // ✅ Kechiktirilgan eski sana
-          postponedAt: "$contract.postponedAt", // ✅ Qachon kechiktirilgan
+          startDate: "$contract.startDate",
+          initialPayment: "$contract.initialPayment",
+          initialPaymentDueDate: "$contract.initialPaymentDueDate",
+          period: "$contract.period",
+          nextPaymentDate: "$contract.nextPaymentDate",
+          previousPaymentDate: "$contract.previousPaymentDate",
+          postponedAt: "$contract.postponedAt",
           debtorId: "$_id",
           isPaid: 1,
-          // ✅ YANGI: To'langan oylar sonini hisoblash
           paidMonthsCount: {
             $size: {
               $filter: {
@@ -503,18 +481,10 @@ class CustomerService {
               },
             },
           },
-          // ✅ YANGI: Umumiy muddat (oylar)
           durationMonths: "$contract.period",
-          // ✅ YANGI: To'langan to'lovlar arrayni qo'shish
           payments: {
             $map: {
-              input: {
-                $filter: {
-                  input: "$paymentDetails",
-                  as: "p",
-                  cond: { $eq: ["$$p.isPaid", true] },
-                },
-              },
+              input: "$paymentDetails",
               as: "payment",
               in: {
                 _id: "$$payment._id",
@@ -537,12 +507,6 @@ class CustomerService {
     console.log("📋 Debtor Contracts:", debtorContractsRaw.map(c => ({
       _id: c._id,
       productName: c.productName,
-      nextPaymentDate: c.nextPaymentDate,
-      nextPaymentDateType: typeof c.nextPaymentDate,
-      nextPaymentDateISO: c.nextPaymentDate ? new Date(c.nextPaymentDate).toISOString() : null,
-      previousPaymentDate: c.previousPaymentDate,
-      postponedAt: c.postponedAt,
-      isPaid: c.isPaid,
       paidMonthsCount: c.paidMonthsCount,
       durationMonths: c.durationMonths,
       paymentsCount: c.payments?.length || 0,
