@@ -374,8 +374,7 @@ class CustomerService {
                         { $eq: ["$$p.status", "PAID"] }
                       ]
                     },
-                    { $ne: ["$$p.paymentType", "initial"] },
-                    { $ne: ["$$p.paymentType", "extra"] }
+                    { $eq: ["$$p.paymentType", "monthly"] }
                   ],
                 },
               },
@@ -508,8 +507,7 @@ class CustomerService {
                         { $eq: ["$$p.status", "PAID"] }
                       ]
                     },
-                    { $ne: ["$$p.paymentType", "initial"] },
-                    { $ne: ["$$p.paymentType", "extra"] }
+                    { $eq: ["$$p.paymentType", "monthly"] }
                   ],
                 },
               },
