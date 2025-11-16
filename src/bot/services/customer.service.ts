@@ -25,8 +25,25 @@ class CustomerService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      console.log("🔍 Getting unpaid debtors for manager:", user.sub);
+      console.log("\n🔍 === GETTING UNPAID DEBTORS ===");
+      console.log("👤 Manager ID:", user.sub);
       console.log("📅 Today:", today.toISOString().split("T")[0]);
+
+      // Debug: Barcha shartnomalarni sanash
+      const totalContracts = await Contract.countDocuments({
+        isActive: true,
+        isDeleted: false,
+        status: "active",
+      });
+      console.log("📊 Total active contracts:", totalContracts);
+
+      const overdueContracts = await Contract.countDocuments({
+        isActive: true,
+        isDeleted: false,
+        status: "active",
+        nextPaymentDate: { $lt: today },
+      });
+      console.log("⏰ Overdue contracts:", overdueContracts);
 
       // To'g'ridan-to'g'ri Contract'lardan kechikkan to'lovlarni olish
       const result = await Contract.aggregate([
@@ -34,7 +51,7 @@ class CustomerService {
           $match: {
             isActive: true,
             isDeleted: false,
-            status: "ACTIVE",
+            status: "active", // ✅ TUZATILDI: kichik harflar bilan
             nextPaymentDate: { $lt: today }, // Kechikkan to'lovlar
           },
         },
@@ -94,14 +111,15 @@ class CustomerService {
             remainingDebt: { $gt: 0 },
           },
         },
-        // Kechikish kunlarini hisoblash
+        // Kechikish kunlarini hisoblash (MongoDB 4.x uchun ham ishlaydi)
         {
           $addFields: {
             delayDays: {
-              $dateDiff: {
-                startDate: "$nextPaymentDate",
-                endDate: today,
-                unit: "day",
+              $floor: {
+                $divide: [
+                  { $subtract: [today, "$nextPaymentDate"] },
+                  1000 * 60 * 60 * 24, // milliseconds to days
+                ],
               },
             },
           },
@@ -122,6 +140,17 @@ class CustomerService {
       ]);
 
       console.log(`✅ Found ${result.length} customers with overdue payments`);
+
+      if (result.length > 0) {
+        console.log("📋 Sample debtor:", {
+          firstName: result[0].firstName,
+          lastName: result[0].lastName,
+          delayDays: result[0].delayDays,
+          totalDebt: result[0].totalDebt,
+          contractsCount: result[0].contractsCount,
+        });
+      }
+      console.log("=".repeat(50) + "\n");
 
       return {
         status: "success",
@@ -346,7 +375,7 @@ class CustomerService {
       {
         $match: {
           customer: new Types.ObjectId(customerId),
-          status: "active",
+          status: "active", // ✅ To'g'ri - kichik harflar
         },
       },
       {
