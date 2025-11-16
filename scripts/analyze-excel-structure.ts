@@ -1,12 +1,11 @@
 import "dotenv/config";
 import XLSX from "xlsx";
-import path from "path";
 
 async function analyzeExcelStructure() {
   try {
     console.log("=== EXCEL STRUCTURE ANALYSIS ===\n");
 
-    const filePath = path.join(__dirname, "../../ma'lumot.xlsx");
+    const filePath = "./ma'lumot.xlsx";
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
