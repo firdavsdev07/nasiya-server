@@ -19,7 +19,7 @@ class CashService {
         status: PaymentStatus.PENDING,
       });
       const paidCount = await Payment.countDocuments({
-        status: PaymentStatus.PAID
+        status: PaymentStatus.PAID,
       });
 
       logger.log("📊 Payment Statistics:", {
@@ -28,21 +28,11 @@ class CashService {
         totalPaid: paidCount,
       });
 
-      // ✅ BARCHA statusdagi to'lovlarni olish (REJECTED dan tashqari)
-      // Kassa sahifasida barcha to'lovlar ko'rinishi kerak (audit uchun)
-      // status: PENDING - hali tasdiqlanmagan (bot'dan)
-      // status: PAID - to'liq to'langan
-      // status: UNDERPAID - kam to'langan
-      // status: OVERPAID - ko'p to'langan
+      // ✅ Faqat PENDING statusdagi to'lovlarni olish
+      // Kassa sahifasida faqat tasdiqlanmagan to'lovlar ko'rinishi kerak
+      // status: PENDING - hali tasdiqlanmagan (bot'dan kelgan)
       const payments = await Payment.find({
-        status: {
-          $in: [
-            PaymentStatus.PENDING,
-            PaymentStatus.PAID,
-            PaymentStatus.UNDERPAID,
-            PaymentStatus.OVERPAID
-          ]
-        },
+        status: PaymentStatus.PENDING,
       })
         .populate({
           path: "customerId",
