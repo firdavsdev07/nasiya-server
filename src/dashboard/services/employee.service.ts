@@ -259,67 +259,98 @@ class EmployeeService {
   }
 
   async withdrawFromBalance(data: withdrawFromBalanceDto) {
-    console.log("💰 === WITHDRAW FROM BALANCE ===");
-    console.log("Employee ID:", data._id);
-    console.log("Amount:", data.currencyDetails);
+    try {
+      console.log("💰 === WITHDRAW FROM BALANCE START ===");
+      console.log("Employee ID:", data._id);
+      console.log("Currency Details:", JSON.stringify(data.currencyDetails));
+      console.log("Notes:", data.notes);
 
-    const employeeExist = await Employee.findById(data._id)
-      .populate("auth")
-      .exec();
+      const employeeExist = await Employee.findById(data._id)
+        .populate("auth")
+        .exec();
 
-    if (!employeeExist) {
-      throw BaseError.NotFoundError("Employee topilmadi.");
-    }
+      if (!employeeExist) {
+        console.error("❌ Employee not found:", data._id);
+        throw BaseError.NotFoundError("Employee topilmadi.");
+      }
 
-    const balance = await Balance.findOne({ managerId: employeeExist._id });
-
-    if (!balance) {
-      throw BaseError.NotFoundError("Balans topilmadi");
-    }
-
-    // 1. Balansni tekshirish - yetarli pul bormi?
-    const changes = data.currencyDetails;
-    if (balance.dollar < changes.dollar) {
-      throw BaseError.BadRequest(
-        `Balansda yetarli dollar yo'q. Mavjud: ${balance.dollar}, Kerak: ${changes.dollar}`
+      console.log(
+        "✅ Employee found:",
+        employeeExist.firstName,
+        employeeExist.lastName
       );
-    }
-    if (balance.sum < changes.sum) {
-      throw BaseError.BadRequest(
-        `Balansda yetarli so'm yo'q. Mavjud: ${balance.sum}, Kerak: ${changes.sum}`
-      );
-    }
 
-    // 2. Expense yaratish (xarajat yozuvi)
-    const { Expenses } = await import("../../schemas/expenses.schema");
-    const expense = await Expenses.create({
-      managerId: employeeExist._id,
-      dollar: changes.dollar || 0,
-      sum: changes.sum || 0,
-      isActive: true,
-      notes: data.notes || "Balansdan pul yechib olindi",
-    });
+      const balance = await Balance.findOne({ managerId: employeeExist._id });
 
-    console.log("✅ Expense created:", expense._id);
+      if (!balance) {
+        console.error("❌ Balance not found for employee:", data._id);
+        throw BaseError.NotFoundError("Balans topilmadi");
+      }
 
-    // 3. Balansni kamaytirish
-    balance.dollar -= changes.dollar;
-    balance.sum -= changes.sum;
-    await balance.save();
-
-    console.log("✅ Balance updated:", {
-      newDollar: balance.dollar,
-      newSum: balance.sum,
-    });
-
-    return {
-      message: "Pul muvaffaqiyatli yechib olindi va xarajat yaratildi.",
-      expenseId: expense._id,
-      newBalance: {
+      console.log("✅ Current balance:", {
         dollar: balance.dollar,
         sum: balance.sum,
-      },
-    };
+      });
+
+      // 1. Balansni tekshirish - yetarli pul bormi?
+      const changes = data.currencyDetails;
+      console.log("💵 Requested withdrawal:", {
+        dollar: changes.dollar,
+        sum: changes.sum,
+      });
+
+      if (balance.dollar < changes.dollar) {
+        console.error("❌ Insufficient dollar balance");
+        throw BaseError.BadRequest(
+          `Balansda yetarli dollar yo'q. Mavjud: ${balance.dollar}, Kerak: ${changes.dollar}`
+        );
+      }
+      if (balance.sum < changes.sum) {
+        console.error("❌ Insufficient sum balance");
+        throw BaseError.BadRequest(
+          `Balansda yetarli so'm yo'q. Mavjud: ${balance.sum}, Kerak: ${changes.sum}`
+        );
+      }
+
+      // 2. Expense yaratish (xarajat yozuvi)
+      console.log("📝 Creating expense record...");
+      const { Expenses } = await import("../../schemas/expenses.schema");
+      const expense = await Expenses.create({
+        managerId: employeeExist._id,
+        dollar: changes.dollar || 0,
+        sum: changes.sum || 0,
+        isActive: true,
+        notes: data.notes || "Balansdan pul yechib olindi",
+      });
+
+      console.log("✅ Expense created:", expense._id);
+
+      // 3. Balansni kamaytirish
+      console.log("💳 Updating balance...");
+      balance.dollar -= changes.dollar;
+      balance.sum -= changes.sum;
+      await balance.save();
+
+      console.log("✅ Balance updated successfully:", {
+        newDollar: balance.dollar,
+        newSum: balance.sum,
+      });
+
+      console.log("💰 === WITHDRAW FROM BALANCE SUCCESS ===");
+
+      return {
+        message: "Pul muvaffaqiyatli yechib olindi va xarajat yaratildi.",
+        expenseId: expense._id,
+        newBalance: {
+          dollar: balance.dollar,
+          sum: balance.sum,
+        },
+      };
+    } catch (error) {
+      console.error("❌ === WITHDRAW FROM BALANCE ERROR ===");
+      console.error("Error details:", error);
+      throw error;
+    }
   }
 }
 
