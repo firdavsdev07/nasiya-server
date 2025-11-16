@@ -185,6 +185,10 @@ class CustomerService {
 
   async getById(user: IJwtUser, customerId: string) {
     try {
+      console.log("\n🔍 === GET CUSTOMER BY ID ===");
+      console.log("📋 Customer ID:", customerId);
+      console.log("👤 Manager ID:", user.sub);
+
       const customerData = await Customer.aggregate([
         {
           $match: {
@@ -301,11 +305,24 @@ class CustomerService {
         },
       ]);
 
+      console.log("📊 Customer data found:", customerData.length);
+
       if (!customerData.length) {
+        console.log("❌ Customer not found or not accessible");
         throw BaseError.NotFoundError(
           "Mijoz topilmadi yoki sizga tegishli emas"
         );
       }
+
+      console.log("✅ Customer details:", {
+        firstName: customerData[0].firstName,
+        lastName: customerData[0].lastName,
+        phoneNumber: customerData[0].phoneNumber,
+        totalDebt: customerData[0].totalDebt,
+        totalPaid: customerData[0].totalPaid,
+        remainingDebt: customerData[0].remainingDebt,
+      });
+      console.log("=".repeat(50) + "\n");
 
       return {
         status: "success",
