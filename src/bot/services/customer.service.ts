@@ -343,6 +343,8 @@ class CustomerService {
           nextPaymentDate: 1,
           previousPaymentDate: 1,
           postponedAt: 1,
+          isPostponedOnce: 1,
+          originalPaymentDay: 1,
           payments: {
             $map: {
               input: "$paymentDetails",
