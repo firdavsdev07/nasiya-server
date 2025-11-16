@@ -265,7 +265,8 @@ class ExcelImportService {
         const remainder = payment.amount - monthsCount * expectedMonthlyPayment;
 
         console.log(
-          `  💰 Large payment detected: ${payment.amount
+          `  💰 Large payment detected: ${
+            payment.amount
           }$ = ${monthsCount} oy + ${remainder.toFixed(2)}$ qoldiq`
         );
 
@@ -298,7 +299,8 @@ class ExcelImportService {
           paymentIds.push(paymentDoc._id);
 
           console.log(
-            `    ✓ Payment ${i + 1
+            `    ✓ Payment ${
+              i + 1
             }/${monthsCount}: ${monthStr}/${yearNum} - ${expectedMonthlyPayment}$`
           );
         }
@@ -317,16 +319,37 @@ class ExcelImportService {
             createBy: managerId,
           });
 
+          // Qoldiq to'lov statusini aniqlash
+          const remainderDiff = remainder - expectedMonthlyPayment;
+          let remainderStatus = PaymentStatus.PAID;
+          let remainderActualAmount = remainder;
+          let remainderRemainingAmount = 0;
+
+          if (remainderDiff < -0.01) {
+            // Kam to'langan
+            remainderStatus = PaymentStatus.UNDERPAID;
+            remainderRemainingAmount = Math.abs(remainderDiff);
+            console.log(
+              `    ⚠️ Remainder UNDERPAID: ${remainder.toFixed(
+                2
+              )}$ < ${expectedMonthlyPayment}$, remaining: ${remainderRemainingAmount.toFixed(
+                2
+              )}$`
+            );
+          }
+
           const paymentDoc = await Payment.create({
             amount: remainder,
+            actualAmount: remainderActualAmount,
             date: remainderDate.toDate(),
-            isPaid: true,
+            isPaid: remainderStatus === PaymentStatus.PAID,
             paymentType: PaymentType.MONTHLY,
             customerId,
             managerId,
             notes: notes._id,
-            status: PaymentStatus.PAID,
+            status: remainderStatus,
             expectedAmount: expectedMonthlyPayment,
+            remainingAmount: remainderRemainingAmount,
             confirmedAt: paymentDate,
             confirmedBy: managerId,
           });
@@ -336,7 +359,7 @@ class ExcelImportService {
           console.log(
             `    ✓ Remainder payment: ${monthStr}/${yearNum} - ${remainder.toFixed(
               2
-            )}$`
+            )}$ (status: ${remainderStatus})`
           );
         }
       } else {
@@ -347,16 +370,43 @@ class ExcelImportService {
           createBy: managerId,
         });
 
+        // To'lov statusini aniqlash
+        const difference = payment.amount - expectedMonthlyPayment;
+        let paymentStatus = PaymentStatus.PAID;
+        let actualAmount = payment.amount;
+        let remainingAmount = 0;
+
+        if (difference < -0.01) {
+          // Kam to'langan
+          paymentStatus = PaymentStatus.UNDERPAID;
+          remainingAmount = Math.abs(difference);
+          console.log(
+            `  ⚠️ UNDERPAID: ${
+              payment.amount
+            }$ < ${expectedMonthlyPayment}$, remaining: ${remainingAmount.toFixed(
+              2
+            )}$`
+          );
+        } else if (difference > 0.01) {
+          // Ko'p to'langan
+          paymentStatus = PaymentStatus.OVERPAID;
+          console.log(
+            `  ℹ️ OVERPAID: ${payment.amount}$ > ${expectedMonthlyPayment}$`
+          );
+        }
+
         const paymentDoc = await Payment.create({
           amount: payment.amount,
+          actualAmount: actualAmount,
           date: paymentDate,
-          isPaid: true,
+          isPaid: paymentStatus === PaymentStatus.PAID,
           paymentType: PaymentType.MONTHLY,
           customerId,
           managerId,
           notes: notes._id,
-          status: PaymentStatus.PAID,
+          status: paymentStatus,
           expectedAmount: expectedMonthlyPayment,
+          remainingAmount: remainingAmount,
           confirmedAt: paymentDate,
           confirmedBy: managerId,
         });
@@ -364,7 +414,7 @@ class ExcelImportService {
         paymentIds.push(paymentDoc._id);
 
         console.log(
-          `  ✓ Payment created: ${payment.month}/${payment.year} - ${payment.amount}$`
+          `  ✓ Payment created: ${payment.month}/${payment.year} - ${payment.amount}$ (status: ${paymentStatus})`
         );
       }
 
