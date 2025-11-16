@@ -215,7 +215,7 @@ class CustomerService {
                 $match: {
                   $expr: {
                     $and: [
-                      { $eq: ["$customerId", "$customerId"] },
+                      { $eq: ["$customerId", "$$customerId"] }, // ✅ TUZATILDI: $$ ishlatildi
                       { $eq: ["$isPaid", true] },
                     ],
                   },
@@ -231,7 +231,13 @@ class CustomerService {
               $sum: "$contracts.totalPrice",
             },
             totalPaid: {
-              $sum: "$payments.amount",
+              $sum: {
+                $map: {
+                  input: "$payments",
+                  as: "payment",
+                  in: "$$payment.amount", // ✅ TUZATILDI: to'g'ri format
+                },
+              },
             },
           },
         },
@@ -250,7 +256,7 @@ class CustomerService {
               {
                 $match: {
                   $expr: {
-                    $in: ["$contractId", "$contractIds"],
+                    $in: ["$contractId", "$$contractIds"], // ✅ TUZATILDI: $$ ishlatildi
                   },
                 },
               },
@@ -275,10 +281,10 @@ class CustomerService {
                   as: "debtor",
                   in: {
                     $cond: [
-                      { $lt: ["$debtor.dueDate", new Date()] },
+                      { $lt: ["$$debtor.dueDate", new Date()] }, // ✅ TUZATILDI: $$ ishlatildi
                       {
                         $dateDiff: {
-                          startDate: "$debtor.dueDate",
+                          startDate: "$$debtor.dueDate", // ✅ TUZATILDI: $$ ishlatildi
                           endDate: new Date(),
                           unit: "day",
                         },
