@@ -25,56 +25,88 @@ class CustomerService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const result = await Debtor.aggregate([
+      console.log("🔍 Getting unpaid debtors for manager:", user.sub);
+      console.log("📅 Today:", today.toISOString().split("T")[0]);
+
+      // To'g'ridan-to'g'ri Contract'lardan kechikkan to'lovlarni olish
+      const result = await Contract.aggregate([
         {
-          $lookup: {
-            from: "contracts",
-            localField: "contractId",
-            foreignField: "_id",
-            as: "contract",
+          $match: {
+            isActive: true,
+            isDeleted: false,
+            status: "ACTIVE",
+            nextPaymentDate: { $lt: today }, // Kechikkan to'lovlar
           },
         },
-        { $unwind: "$contract" },
-
         {
           $lookup: {
             from: "customers",
-            localField: "contract.customer",
+            localField: "customer",
             foreignField: "_id",
             as: "customer",
           },
         },
         { $unwind: "$customer" },
-
         {
           $match: {
             "customer.manager": new Types.ObjectId(user.sub),
-            $or: [
-              { payment: { $exists: false } },
-              { "payment.isPaid": { $ne: true } },
-            ],
+            "customer.isActive": true,
+            "customer.isDeleted": false,
           },
         },
-
+        {
+          $lookup: {
+            from: "payments",
+            localField: "payments",
+            foreignField: "_id",
+            as: "paymentDetails",
+          },
+        },
+        {
+          $addFields: {
+            totalPaid: {
+              $sum: {
+                $map: {
+                  input: {
+                    $filter: {
+                      input: "$paymentDetails",
+                      as: "p",
+                      cond: { $eq: ["$$p.isPaid", true] },
+                    },
+                  },
+                  as: "pp",
+                  in: "$$pp.amount",
+                },
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            remainingDebt: {
+              $subtract: ["$totalPrice", "$totalPaid"],
+            },
+          },
+        },
+        // Faqat qarzi bor shartnomalar
+        {
+          $match: {
+            remainingDebt: { $gt: 0 },
+          },
+        },
         // Kechikish kunlarini hisoblash
         {
           $addFields: {
             delayDays: {
-              $cond: [
-                { $lt: ["$dueDate", today] },
-                {
-                  $dateDiff: {
-                    startDate: "$dueDate",
-                    endDate: today,
-                    unit: "day",
-                  },
-                },
-                0,
-              ],
+              $dateDiff: {
+                startDate: "$nextPaymentDate",
+                endDate: today,
+                unit: "day",
+              },
             },
           },
         },
-
+        // Mijozlar bo'yicha guruhlash
         {
           $group: {
             _id: "$customer._id",
@@ -82,17 +114,21 @@ class CustomerService {
             lastName: { $first: "$customer.lastName" },
             phoneNumber: { $first: "$customer.phoneNumber" },
             delayDays: { $max: "$delayDays" },
+            totalDebt: { $sum: "$remainingDebt" },
+            contractsCount: { $sum: 1 },
           },
         },
-
         { $sort: { delayDays: -1 } },
       ]);
+
+      console.log(`✅ Found ${result.length} customers with overdue payments`);
 
       return {
         status: "success",
         data: result,
       };
     } catch (error) {
+      console.error("❌ Error getting unpaid debtors:", error);
       throw BaseError.InternalServerError(String(error));
     }
   }
