@@ -82,24 +82,45 @@ class PaymentSrvice {
     if (contract && contract.nextPaymentDate) {
       const currentDate = new Date(contract.nextPaymentDate);
 
-      // ✅ To'lov sanasi har doim bir xil kun bo'lib turishi kerak
-      // Masalan: 10-Dekabr → 10-Yanvar (qachon to'lasangiz ham)
-      const nextMonth = new Date(currentDate);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      // ✅ MUHIM: Agar to'lov kechiktirilgan bo'lsa (postponed), asl sanaga qaytarish
+      let nextMonth: Date;
 
-      contract.nextPaymentDate = nextMonth;
+      if (contract.previousPaymentDate && contract.postponedAt) {
+        // Kechiktirilgan to'lov to'landi - asl sanaga qaytarish
+        const originalDate = new Date(contract.previousPaymentDate);
+        const originalDay = originalDate.getDate();
 
-      // Agar kechiktirilgan bo'lsa, tozalash
-      if (contract.previousPaymentDate) {
+        nextMonth = new Date(originalDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(originalDay);
+
+        console.log("🔄 Kechiktirilgan to'lov to'landi - asl sanaga qaytarildi:", {
+          postponedDate: currentDate.toLocaleDateString("uz-UZ"),
+          originalDate: originalDate.toLocaleDateString("uz-UZ"),
+          nextDate: nextMonth.toLocaleDateString("uz-UZ"),
+          originalDay: originalDay,
+        });
+
+        // Kechiktirilgan ma'lumotlarni tozalash
         contract.previousPaymentDate = undefined;
         contract.postponedAt = undefined;
+      } else {
+        // Oddiy to'lov - keyingi oyga o'tkazish
+        const dayOfMonth = currentDate.getDate();
+
+        nextMonth = new Date(currentDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(dayOfMonth);
+
+        console.log("📅 Oddiy to'lov - keyingi oyga o'tkazildi:", {
+          old: currentDate.toLocaleDateString("uz-UZ"),
+          new: nextMonth.toLocaleDateString("uz-UZ"),
+          dayOfMonth: dayOfMonth,
+        });
       }
 
+      contract.nextPaymentDate = nextMonth;
       await contract.save();
-      console.log("📅 nextPaymentDate updated immediately (Bot):", {
-        old: currentDate.toLocaleDateString("uz-UZ"),
-        new: nextMonth.toLocaleDateString("uz-UZ"),
-      });
     }
 
     // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
@@ -159,24 +180,45 @@ class PaymentSrvice {
     if (existingContract && existingContract.nextPaymentDate) {
       const currentDate = new Date(existingContract.nextPaymentDate);
 
-      // ✅ To'lov sanasi har doim bir xil kun bo'lib turishi kerak
-      // Masalan: 10-Dekabr → 10-Yanvar (qachon to'lasangiz ham)
-      const nextMonth = new Date(currentDate);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      // ✅ MUHIM: Agar to'lov kechiktirilgan bo'lsa (postponed), asl sanaga qaytarish
+      let nextMonth: Date;
 
-      existingContract.nextPaymentDate = nextMonth;
+      if (existingContract.previousPaymentDate && existingContract.postponedAt) {
+        // Kechiktirilgan to'lov to'landi - asl sanaga qaytarish
+        const originalDate = new Date(existingContract.previousPaymentDate);
+        const originalDay = originalDate.getDate();
 
-      // Agar kechiktirilgan bo'lsa, tozalash
-      if (existingContract.previousPaymentDate) {
+        nextMonth = new Date(originalDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(originalDay);
+
+        console.log("🔄 Kechiktirilgan to'lov to'landi - asl sanaga qaytarildi:", {
+          postponedDate: currentDate.toLocaleDateString("uz-UZ"),
+          originalDate: originalDate.toLocaleDateString("uz-UZ"),
+          nextDate: nextMonth.toLocaleDateString("uz-UZ"),
+          originalDay: originalDay,
+        });
+
+        // Kechiktirilgan ma'lumotlarni tozalash
         existingContract.previousPaymentDate = undefined;
         existingContract.postponedAt = undefined;
+      } else {
+        // Oddiy to'lov - keyingi oyga o'tkazish
+        const dayOfMonth = currentDate.getDate();
+
+        nextMonth = new Date(currentDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(dayOfMonth);
+
+        console.log("📅 Oddiy to'lov - keyingi oyga o'tkazildi:", {
+          old: currentDate.toLocaleDateString("uz-UZ"),
+          new: nextMonth.toLocaleDateString("uz-UZ"),
+          dayOfMonth: dayOfMonth,
+        });
       }
 
+      existingContract.nextPaymentDate = nextMonth;
       await existingContract.save();
-      console.log("📅 nextPaymentDate updated immediately (Bot):", {
-        old: currentDate.toLocaleDateString("uz-UZ"),
-        new: nextMonth.toLocaleDateString("uz-UZ"),
-      });
     }
 
     // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
