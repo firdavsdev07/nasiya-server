@@ -8,11 +8,39 @@ import { Types } from "mongoose";
 
 class CustomerService {
   async getAll(user: IJwtUser) {
+    console.log("\n👥 === GETTING ALL CUSTOMERS ===");
+    console.log("👤 Manager ID:", user.sub);
+
+    // Debug: Barcha mijozlarni sanash
+    const totalCustomers = await Customer.countDocuments({
+      isActive: true,
+      isDeleted: false,
+    });
+    console.log("📊 Total active customers:", totalCustomers);
+
+    const managerCustomers = await Customer.countDocuments({
+      isActive: true,
+      isDeleted: false,
+      manager: user.sub,
+    });
+    console.log("📊 Manager's customers:", managerCustomers);
+
     const customers = await Customer.find({
       isActive: true,
       isDeleted: false,
       manager: user.sub,
     }).select("firstName lastName _id phoneNumber");
+
+    console.log(`✅ Found ${customers.length} customers for manager`);
+
+    if (customers.length > 0) {
+      console.log("📋 Sample customer:", {
+        firstName: customers[0].firstName,
+        lastName: customers[0].lastName,
+        phoneNumber: customers[0].phoneNumber,
+      });
+    }
+    console.log("=".repeat(50) + "\n");
 
     return {
       status: "success",
@@ -164,25 +192,29 @@ class CustomerService {
 
   async getPaidDebtors(user: IJwtUser) {
     try {
-      const result = await Debtor.aggregate([
+      console.log("\n💰 === GETTING CUSTOMERS WITH PAYMENTS ===");
+      console.log("👤 Manager ID:", user.sub);
+
+      // Oxirgi 30 kun ichida to'lov qilgan mijozlarni olish
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      console.log("📅 Looking for payments since:", thirtyDaysAgo.toISOString().split("T")[0]);
+
+      // Payment collection'dan to'lov qilgan mijozlarni topish
+      const result = await Contract.aggregate([
         {
           $match: {
-            "payment.isPaid": true,
+            isActive: true,
+            isDeleted: false,
+            status: "active",
           },
         },
-        {
-          $lookup: {
-            from: "contracts",
-            localField: "contractId",
-            foreignField: "_id",
-            as: "contract",
-          },
-        },
-        { $unwind: "$contract" },
         {
           $lookup: {
             from: "customers",
-            localField: "contract.customer",
+            localField: "customer",
             foreignField: "_id",
             as: "customer",
           },
@@ -191,23 +223,111 @@ class CustomerService {
         {
           $match: {
             "customer.manager": new Types.ObjectId(user.sub),
+            "customer.isActive": true,
+            "customer.isDeleted": false,
           },
         },
+        {
+          $lookup: {
+            from: "payments",
+            localField: "payments",
+            foreignField: "_id",
+            as: "paymentDetails",
+          },
+        },
+        // Faqat oxirgi 30 kun ichida to'lov qilgan shartnomalar
+        {
+          $addFields: {
+            recentPayments: {
+              $filter: {
+                input: "$paymentDetails",
+                as: "p",
+                cond: {
+                  $and: [
+                    { $eq: ["$$p.isPaid", true] },
+                    { $gte: ["$$p.date", thirtyDaysAgo] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            "recentPayments.0": { $exists: true }, // Kamida 1 ta to'lov bo'lishi kerak
+          },
+        },
+        {
+          $addFields: {
+            totalPaid: {
+              $sum: {
+                $map: {
+                  input: {
+                    $filter: {
+                      input: "$paymentDetails",
+                      as: "p",
+                      cond: { $eq: ["$$p.isPaid", true] },
+                    },
+                  },
+                  as: "pp",
+                  in: "$$pp.amount",
+                },
+              },
+            },
+            lastPaymentDate: {
+              $max: {
+                $map: {
+                  input: "$recentPayments",
+                  as: "p",
+                  in: "$$p.date",
+                },
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            remainingDebt: {
+              $subtract: ["$totalPrice", "$totalPaid"],
+            },
+          },
+        },
+        // Mijozlar bo'yicha guruhlash
         {
           $group: {
             _id: "$customer._id",
             firstName: { $first: "$customer.firstName" },
             lastName: { $first: "$customer.lastName" },
             phoneNumber: { $first: "$customer.phoneNumber" },
+            lastPaymentDate: { $max: "$lastPaymentDate" },
+            totalPaid: { $sum: "$totalPaid" },
+            totalDebt: { $sum: "$totalPrice" },
+            remainingDebt: { $sum: "$remainingDebt" },
+            contractsCount: { $sum: 1 },
           },
         },
+        { $sort: { lastPaymentDate: -1 } }, // Eng oxirgi to'lov qilganlar birinchi
       ]);
+
+      console.log(`✅ Found ${result.length} customers with recent payments`);
+
+      if (result.length > 0) {
+        console.log("📋 Sample customer:", {
+          firstName: result[0].firstName,
+          lastName: result[0].lastName,
+          lastPaymentDate: result[0].lastPaymentDate,
+          totalPaid: result[0].totalPaid,
+          remainingDebt: result[0].remainingDebt,
+        });
+      }
+      console.log("=".repeat(50) + "\n");
 
       return {
         status: "success",
         data: result,
       };
     } catch (error) {
+      console.error("❌ Error getting customers with payments:", error);
       throw BaseError.InternalServerError(String(error));
     }
   }
