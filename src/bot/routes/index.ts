@@ -6,6 +6,7 @@ import paymentRoute from "./payment.routes";
 import dashboardRoute from "./dashboard.routes";
 import notesRoute from "./notes.routes";
 import expensesRoute from "./expenses.routes";
+import contractRoute from "./contract.routes";
 import { botManager } from "../../middlewares/botManager.middleware";
 
 const routes = Router();
@@ -21,6 +22,11 @@ routes.use(
   "/payment",
   botManager,
   paymentRoute
+);
+routes.use(
+  "/contract",
+  botManager,
+  contractRoute
 );
 routes.use(
   "/dashboard",
