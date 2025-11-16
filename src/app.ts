@@ -35,32 +35,24 @@ if (!dashbordHostUrl || !BotHostUrl) {
 const allowedOrigins = [
   dashbordHostUrl,
   BotHostUrl,
-  // "https://www.damen.uz",
-  // "https://damen-web.vercel.app",
   "http://localhost:5174",
-  "http://localhost:5173"
+  "http://localhost:5173",
 ];
 
-// Add bot web app URL if exists
 if (botWebAppUrl) {
   allowedOrigins.push(botWebAppUrl);
 }
 
-// Development rejimida localhost'larni qo'shish
 if (process.env.NODE_ENV === "development") {
   allowedOrigins.push("http://localhost:5174");
   allowedOrigins.push("http://localhost:5173");
-
-  // Ngrok URL'larni ham qo'shish (development uchun)
-  if (BotHostUrl && BotHostUrl.includes('ngrok')) {
-    console.log(`✅ Ngrok URL CORS'ga qo'shildi: ${BotHostUrl}`);
-  }
 }
 
-// CORS middleware with detailed logging
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  console.log(`📨 Request: ${req.method} ${req.path} from origin: ${origin || 'no-origin'}`);
+  console.log(
+    `Request: ${req.method} ${req.path} from origin: ${origin || "no-origin"}`
+  );
   next();
 });
 
@@ -71,30 +63,21 @@ app.use(
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void
     ) => {
-      console.log(`🔍 CORS check for origin: ${origin || 'no-origin'}`);
-      console.log(`📋 Allowed origins:`, allowedOrigins);
-
-      // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) {
-        console.log(`✅ No origin - allowing request`);
         return callback(null, true);
       }
 
       // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
-        console.log(`✅ Origin in allowed list: ${origin}`);
         callback(null, true);
         return;
       }
 
-      // Development rejimida ngrok URL'larni ham qabul qilish
       if (process.env.NODE_ENV === "development" && origin.includes("ngrok")) {
-        console.log(`✅ Ngrok origin qabul qilindi: ${origin}`);
         callback(null, true);
         return;
       }
 
-      console.warn(`⚠️ CORS blocked origin: ${origin}`);
       callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -129,11 +112,10 @@ app.get("/api/metrics", getMetrics);
 
 // Global request logger
 app.use((req, res, next) => {
-  if (req.path.includes("/payment/pay-all-remaining") || req.path.includes("/payment/contract")) {
-    console.log("🌐 === INCOMING REQUEST ===");
-    console.log("📍 Path:", req.path);
-    console.log("🔧 Method:", req.method);
-    console.log("📦 Body:", JSON.stringify(req.body, null, 2));
+  if (
+    req.path.includes("/payment/pay-all-remaining") ||
+    req.path.includes("/payment/contract")
+  ) {
     console.log("🔑 Headers:", {
       contentType: req.headers["content-type"],
       authorization: req.headers.authorization?.substring(0, 30) + "...",
@@ -148,20 +130,21 @@ app.use("/api", routes);
 app.use("/api/seller", routesSeller);
 app.use("/api/bot", routesBot);
 
-
 const botDistPath = path.join(__dirname, "../../bot/dist");
 
-// /bot yo'lida bot Web App'ni serve qilish
-app.use("/bot", express.static(botDistPath, {
-  index: "index.html",
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    } else if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    }
-  }
-}));
+app.use(
+  "/bot",
+  express.static(botDistPath, {
+    index: "index.html",
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css");
+      } else if (filePath.endsWith(".js")) {
+        res.setHeader("Content-Type", "application/javascript");
+      }
+    },
+  })
+);
 
 // Telegram webhook endpoint
 import bot from "./bot/main";
@@ -173,7 +156,6 @@ app.get("/", (req, res) => {
   res.json({ test: "nasiya server" });
 });
 //middleware
-// app.use(ErrorMiddleware);
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   ErrorMiddleware(err, req, res, next);
 });

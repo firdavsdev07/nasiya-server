@@ -21,7 +21,6 @@ const startServer = async () => {
       console.log(`Server is running on port ${PORT}`);
     });
 
-    // Avtomatik debtor yaratish (har 24 soatda)
     setInterval(async () => {
       try {
         await debtorService.createOverdueDebtors();
@@ -30,14 +29,13 @@ const startServer = async () => {
       }
     }, 24 * 60 * 60 * 1000); // 24 soat
 
-    // Server ishga tushganda bir marta ham ishlatish
     setTimeout(async () => {
       try {
         await debtorService.createOverdueDebtors();
       } catch (error) {
         console.error("Error in initial debtor creation:", error);
       }
-    }, 5000); // 5 soniya kutish
+    }, 5000);
 
     const used = process.memoryUsage().heapUsed / 1024 / 1024;
     console.log(`Dastur xotira iste'moli: ${Math.round(used * 100) / 100} MB`);
@@ -48,15 +46,13 @@ const startServer = async () => {
 
 const startApplication = async () => {
   try {
-    // Always start the server
     await startServer();
 
-    // Start bot based on environment and configuration
     const enableBot = process.env.ENABLE_BOT;
     const hasToken = !!process.env.BOT_TOKEN;
     const botHostUrl = process.env.BOT_HOST_URL;
 
-    console.log(`🔍 Bot configuration check:`);
+    console.log(` Bot configuration check:`);
     console.log(`   - Has token: ${hasToken}`);
     console.log(`   - Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`   - ENABLE_BOT: ${enableBot || "not set"}`);
@@ -64,33 +60,33 @@ const startApplication = async () => {
     const shouldStartBot = hasToken && enableBot !== "false";
 
     if (shouldStartBot && botHostUrl) {
-      console.log("🤖 Setting up Telegram webhook...");
+      console.log("Setting up Telegram webhook...");
       try {
-        // Delete old webhook
         await bot.telegram.deleteWebhook({ drop_pending_updates: true });
-        
+
         // Set new webhook
         const webhookUrl = `${botHostUrl}/telegram-webhook`;
         await bot.telegram.setWebhook(webhookUrl, {
           drop_pending_updates: true,
         });
-        
-        console.log(`✅ Webhook o'rnatildi: ${webhookUrl}`);
-        
+
         const webhookInfo = await bot.telegram.getWebhookInfo();
-        console.log(`📊 Webhook status: ${webhookInfo.url ? 'Active' : 'Inactive'}`);
+        console.log(
+          `Webhook status: ${webhookInfo.url ? "Active" : "Inactive"}`
+        );
       } catch (botError: any) {
-        console.error("🚫 Webhook setup failed:", botError.message);
+        console.error("ebhook setup failed:", botError.message);
       }
     } else if (hasToken && enableBot === "false") {
-      console.log("🚫 Bot disabled by ENABLE_BOT=false");
+      console.log("Bot disabled by ENABLE_BOT=false");
     } else {
-      console.log("⚠️ Bot token or BOT_HOST_URL not found, skipping bot initialization");
+      console.log(
+        "Bot token or BOT_HOST_URL not found, skipping bot initialization"
+      );
     }
   } catch (err) {
     console.error("Application start error:", err);
     process.exit(1);
   }
 };
-//start the application
 startApplication();
