@@ -297,10 +297,42 @@ class PaymentService {
       if (contract.nextPaymentDate && payment.paymentType === PaymentType.MONTHLY) {
         const currentDate = new Date(contract.nextPaymentDate);
 
-        // ✅ To'lov sanasi har doim bir xil kun bo'lib turishi kerak
-        // Masalan: 10-Dekabr → 10-Yanvar (qachon to'lasangiz ham)
-        const nextMonth = new Date(currentDate);
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        // ✅ MUHIM: Agar to'lov kechiktirilgan bo'lsa (postponed), asl sanaga qaytarish
+        let nextMonth: Date;
+
+        if (contract.previousPaymentDate && contract.postponedAt) {
+          // Kechiktirilgan to'lov to'landi - asl sanaga qaytarish
+          const originalDate = new Date(contract.previousPaymentDate);
+          const originalDay = originalDate.getDate();
+
+          nextMonth = new Date(originalDate);
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          nextMonth.setDate(originalDay);
+
+          console.log("🔄 Kechiktirilgan to'lov to'landi - asl sanaga qaytarildi:", {
+            postponedDate: currentDate.toLocaleDateString("uz-UZ"),
+            originalDate: originalDate.toLocaleDateString("uz-UZ"),
+            nextDate: nextMonth.toLocaleDateString("uz-UZ"),
+            originalDay: originalDay,
+          });
+
+          // Kechiktirilgan ma'lumotlarni tozalash
+          contract.previousPaymentDate = undefined;
+          contract.postponedAt = undefined;
+        } else {
+          // Oddiy to'lov - keyingi oyga o'tkazish
+          const dayOfMonth = currentDate.getDate();
+
+          nextMonth = new Date(currentDate);
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          nextMonth.setDate(dayOfMonth);
+
+          console.log("📅 Oddiy to'lov - keyingi oyga o'tkazildi:", {
+            old: currentDate.toLocaleDateString("uz-UZ"),
+            new: nextMonth.toLocaleDateString("uz-UZ"),
+            dayOfMonth: dayOfMonth,
+          });
+        }
 
         console.log("📅 BEFORE UPDATE:", {
           currentNextPaymentDate: contract.nextPaymentDate,
@@ -310,12 +342,6 @@ class PaymentService {
         });
 
         contract.nextPaymentDate = nextMonth;
-
-        // Agar kechiktirilgan bo'lsa, tozalash
-        if (contract.previousPaymentDate) {
-          contract.previousPaymentDate = undefined;
-          contract.postponedAt = undefined;
-        }
 
         console.log("📅 AFTER UPDATE (before save):", {
           nextPaymentDate: contract.nextPaymentDate,
