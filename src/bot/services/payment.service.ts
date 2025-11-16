@@ -85,9 +85,8 @@ class PaymentSrvice {
       // ✅ MUHIM: Agar to'lov kechiktirilgan bo'lsa (postponed), asl sanaga qaytarish
       let nextMonth: Date;
 
-      if (contract.previousPaymentDate && contract.postponedAt) {
-        // Kechiktirilgan to'lov to'landi - asl to'lov kuniga qaytarish
-        // originalPaymentDay mavjud bo'lsa, uni ishlatamiz
+      if (contract.isPostponedOnce && contract.previousPaymentDate && contract.postponedAt) {
+        // ✅ Kechiktirilgan to'lov to'landi - asl to'lov kuniga qaytarish
         const originalDay = contract.originalPaymentDay || new Date(contract.previousPaymentDate).getDate();
 
         // Hozirgi oydan keyingi oyni hisoblash
@@ -100,9 +99,10 @@ class PaymentSrvice {
           nextDate: nextMonth.toLocaleDateString("uz-UZ"),
         });
 
-        // Kechiktirilgan ma'lumotlarni tozalash
+        // ✅ Kechiktirilgan ma'lumotlarni tozalash
         contract.previousPaymentDate = undefined;
         contract.postponedAt = undefined;
+        contract.isPostponedOnce = false;
       } else {
         // Oddiy to'lov - asl to'lov kuniga qaytarish
         // originalPaymentDay mavjud bo'lsa, uni ishlatamiz
@@ -233,6 +233,8 @@ class PaymentSrvice {
   /**
    * To'lovni keyinga qoldirish
    * Shartnomaning keyingi to'lov sanasini o'zgartirish
+   * 
+   * ✅ MUHIM: Faqat BITTA oy uchun sana o'zgartiriladi
    */
   async postponePayment(
     contractId: string,
@@ -241,7 +243,7 @@ class PaymentSrvice {
     user: IJwtUser
   ) {
     console.log("\n" + "=".repeat(60));
-    console.log("📅 TO'LOVNI KEYINGA QOLDIRISH");
+    console.log("📅 TO'LOVNI KEYINGA QOLDIRISH (FAQAT BITTA OY)");
     console.log("=".repeat(60));
 
     // Shartnomani topish
@@ -264,15 +266,22 @@ class PaymentSrvice {
       );
     }
 
-    // Eski sanani saqlash
+    // ✅ Eski sanani saqlash (asl to'lov sanasi)
     const oldDate = contract.nextPaymentDate;
 
-    // Yangi sanani o'rnatish
+    // ✅ Yangi sanani o'rnatish (faqat keyingi oy uchun)
     contract.nextPaymentDate = newDate;
 
-    // Eski sanani previousPaymentDate ga saqlash (kechiktirilgan sana)
+    // ✅ Eski sanani previousPaymentDate ga saqlash
     contract.previousPaymentDate = oldDate;
     contract.postponedAt = new Date();
+    contract.isPostponedOnce = true; // ✅ Faqat bitta oy kechiktirilgan
+
+    // ✅ originalPaymentDay ni saqlash (agar mavjud bo'lmasa)
+    if (!contract.originalPaymentDay && oldDate) {
+      contract.originalPaymentDay = oldDate.getDate();
+      console.log("✅ originalPaymentDay saqlandi:", contract.originalPaymentDay);
+    }
 
     await contract.save();
 
