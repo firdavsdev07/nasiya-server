@@ -301,36 +301,34 @@ class PaymentService {
         let nextMonth: Date;
 
         if (contract.previousPaymentDate && contract.postponedAt) {
-          // Kechiktirilgan to'lov to'landi - asl sanaga qaytarish
-          const originalDate = new Date(contract.previousPaymentDate);
-          const originalDay = originalDate.getDate();
+          // Kechiktirilgan to'lov to'landi - asl to'lov kuniga qaytarish
+          const originalDay = contract.originalPaymentDay || new Date(contract.previousPaymentDate).getDate();
 
-          nextMonth = new Date(originalDate);
-          nextMonth.setMonth(nextMonth.getMonth() + 1);
-          nextMonth.setDate(originalDay);
+          // Hozirgi oydan keyingi oyni hisoblash
+          const today = new Date();
+          nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, originalDay);
 
           console.log("🔄 Kechiktirilgan to'lov to'landi - asl sanaga qaytarildi:", {
             postponedDate: currentDate.toLocaleDateString("uz-UZ"),
-            originalDate: originalDate.toLocaleDateString("uz-UZ"),
+            originalPaymentDay: originalDay,
             nextDate: nextMonth.toLocaleDateString("uz-UZ"),
-            originalDay: originalDay,
           });
 
           // Kechiktirilgan ma'lumotlarni tozalash
           contract.previousPaymentDate = undefined;
           contract.postponedAt = undefined;
         } else {
-          // Oddiy to'lov - keyingi oyga o'tkazish
-          const dayOfMonth = currentDate.getDate();
+          // Oddiy to'lov - asl to'lov kuniga qaytarish
+          const originalDay = contract.originalPaymentDay || currentDate.getDate();
 
-          nextMonth = new Date(currentDate);
-          nextMonth.setMonth(nextMonth.getMonth() + 1);
-          nextMonth.setDate(dayOfMonth);
+          // Hozirgi oydan keyingi oyni hisoblash
+          const today = new Date();
+          nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, originalDay);
 
-          console.log("📅 Oddiy to'lov - keyingi oyga o'tkazildi:", {
+          console.log("📅 Oddiy to'lov - asl to'lov kuniga o'tkazildi:", {
             old: currentDate.toLocaleDateString("uz-UZ"),
+            originalPaymentDay: originalDay,
             new: nextMonth.toLocaleDateString("uz-UZ"),
-            dayOfMonth: dayOfMonth,
           });
         }
 

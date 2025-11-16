@@ -55,6 +55,7 @@ export interface IContract extends IBase {
   nextPaymentDate: Date;
   previousPaymentDate?: Date; // Kechiktirilgan eski sana
   postponedAt?: Date; // Qachon kechiktirilgan
+  originalPaymentDay?: number; // Asl to'lov kuni (1-31) - shartnoma boshlanganidagi kun
   customer: ICustomer;
   productName: string;
   originalPrice: number;
@@ -135,6 +136,7 @@ const ContractSchema = new Schema<IContract>(
     nextPaymentDate: { type: Date, required: false },
     previousPaymentDate: { type: Date, required: false }, // Kechiktirilgan eski sana
     postponedAt: { type: Date, required: false }, // Qachon kechiktirilgan
+    originalPaymentDay: { type: Number, required: false }, // Asl to'lov kuni (1-31)
     status: {
       type: String,
       enum: Object.values(ContractStatus),
