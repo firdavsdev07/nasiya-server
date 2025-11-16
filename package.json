@@ -14,13 +14,7 @@
     "deploy:staging": "bash scripts/deploy-staging.sh",
     "deploy:production": "bash scripts/deploy-production.sh",
     "rollback:production": "bash scripts/rollback-production.sh",
-    "monitor:production": "bash scripts/monitor-production.sh",
-    "test:data": "node scripts/generate-test-data.js",
-    "test:auth": "ts-node src/test-auth-no-blocking.ts",
-    "test:debtor": "ts-node src/test-create-debtor.ts",
-    "test:payment": "ts-node src/test-create-payment.ts",
-    "test:cash": "ts-node src/__tests__/run-cash-tests.ts",
-    "verify:indexes": "ts-node scripts/verify-payment-indexes.ts"
+    "monitor:production": "bash scripts/monitor-production.sh"
   },
   "keywords": [],
   "author": "",
