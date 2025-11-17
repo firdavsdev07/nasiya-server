@@ -88,26 +88,41 @@ class ResetService {
    */
   async canReset(userId: string) {
     try {
+      // Development mode'da har kim reset qila oladi
+      if (process.env.NODE_ENV === "development") {
+        console.log("⚠️ Development mode - allowing reset for all users");
+        return { canReset: true };
+      }
+
       // Employee orqali role olish
       const employee = await Employee.findOne({ auth: userId }).populate(
         "role"
       );
+
       if (!employee) {
-        return { canReset: false, reason: "Xodim topilmadi" };
+        console.log("❌ Employee not found for auth:", userId);
+        return {
+          canReset: false,
+          reason:
+            "Xodim topilmadi. Faqat admin va moderatorlar reset qila oladi.",
+        };
       }
 
       const role = employee.role as any;
+      console.log("👤 User role:", role?.name);
+
       const allowedRoles = [RoleEnum.ADMIN, RoleEnum.MODERATOR];
 
-      if (!allowedRoles.includes(role.name)) {
+      if (!allowedRoles.includes(role?.name)) {
         return {
           canReset: false,
-          reason: "Faqat admin va moderatorlar reset qila oladi",
+          reason: `Sizning rolingiz: ${role?.name}. Faqat admin va moderatorlar reset qila oladi.`,
         };
       }
 
       return { canReset: true };
     } catch (error: any) {
+      console.error("❌ canReset error:", error);
       throw new Error(`Ruxsat tekshirishda xatolik: ${error.message}`);
     }
   }
