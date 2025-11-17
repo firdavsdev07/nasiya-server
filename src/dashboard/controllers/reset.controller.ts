@@ -8,9 +8,9 @@ class ResetController {
    */
   async resetAll(req: Request, res: Response) {
     try {
-      const userId = req.user?.sub;
+      const user = req.user;
 
-      if (!userId) {
+      if (!user || !user.sub) {
         return res.status(401).json({
           success: false,
           message: "Autentifikatsiya talab qilinadi",
@@ -18,7 +18,7 @@ class ResetController {
       }
 
       // Ruxsatni tekshirish
-      const permissionCheck = await resetService.canReset(userId);
+      const permissionCheck = await resetService.canReset(user.sub);
       if (!permissionCheck.canReset) {
         return res.status(403).json({
           success: false,
@@ -45,9 +45,9 @@ class ResetController {
    */
   async getStats(req: Request, res: Response) {
     try {
-      const userId = req.user?.sub;
+      const user = req.user;
 
-      if (!userId) {
+      if (!user || !user.sub) {
         return res.status(401).json({
           success: false,
           message: "Autentifikatsiya talab qilinadi",
@@ -55,7 +55,7 @@ class ResetController {
       }
 
       // Ruxsatni tekshirish
-      const permissionCheck = await resetService.canReset(userId);
+      const permissionCheck = await resetService.canReset(user.sub);
       if (!permissionCheck.canReset) {
         return res.status(403).json({
           success: false,
@@ -84,9 +84,9 @@ class ResetController {
    */
   async checkContracts(req: Request, res: Response) {
     try {
-      const userId = req.user?.sub;
+      const user = req.user;
 
-      if (!userId) {
+      if (!user || !user.sub) {
         return res.status(401).json({
           success: false,
           message: "Autentifikatsiya talab qilinadi",
@@ -94,7 +94,7 @@ class ResetController {
       }
 
       // Ruxsatni tekshirish
-      const permissionCheck = await resetService.canReset(userId);
+      const permissionCheck = await resetService.canReset(user.sub);
       if (!permissionCheck.canReset) {
         return res.status(403).json({
           success: false,
