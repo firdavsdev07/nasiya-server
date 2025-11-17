@@ -8,7 +8,7 @@ class ResetController {
    */
   async resetAll(req: Request, res: Response) {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.sub;
 
       if (!userId) {
         return res.status(401).json({
@@ -45,7 +45,7 @@ class ResetController {
    */
   async getStats(req: Request, res: Response) {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.sub;
 
       if (!userId) {
         return res.status(401).json({
@@ -84,7 +84,7 @@ class ResetController {
    */
   async checkContracts(req: Request, res: Response) {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.sub;
 
       if (!userId) {
         return res.status(401).json({

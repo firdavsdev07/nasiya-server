@@ -1,6 +1,6 @@
 import { Router } from "express";
 import resetController from "../controllers/reset.controller";
-import authenticate from "../../middlewares/auth.middleware";
+import { authenticate } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
