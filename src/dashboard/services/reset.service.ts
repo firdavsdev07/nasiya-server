@@ -9,8 +9,106 @@ import Notes from "../../schemas/notes.schema";
 import Employee from "../../schemas/employee.schema";
 import { RoleEnum } from "../../enums/role.enum";
 import { checkAllContractsStatus } from "../../utils/checkAllContractsStatus";
+import fs from "fs";
+import path from "path";
 
 class ResetService {
+  /**
+   * Yuklangan fayllarni o'chirish
+   */
+  private async deleteUploadedFiles() {
+    try {
+      console.log("🗑️ === DELETING UPLOADED FILES ===");
+
+      const uploadsDir = path.join(__dirname, "../../../uploads");
+      const directories = ["passport", "photo", "shartnoma"];
+
+      let totalDeleted = 0;
+
+      for (const dir of directories) {
+        const dirPath = path.join(uploadsDir, dir);
+
+        // Directory mavjudligini tekshirish
+        if (!fs.existsSync(dirPath)) {
+          console.log(`⚠️ Directory not found: ${dirPath}`);
+          continue;
+        }
+
+        // Directory ichidagi barcha fayllarni o'qish
+        const files = fs.readdirSync(dirPath);
+
+        for (const file of files) {
+          // .gitkeep faylini o'chirmaslik
+          if (file === ".gitkeep") {
+            continue;
+          }
+
+          const filePath = path.join(dirPath, file);
+
+          try {
+            // Faylni o'chirish
+            fs.unlinkSync(filePath);
+            totalDeleted++;
+            console.log(`✅ Deleted: ${dir}/${file}`);
+          } catch (error: any) {
+            console.error(`❌ Error deleting ${filePath}:`, error.message);
+          }
+        }
+      }
+
+      console.log(`✅ Total files deleted: ${totalDeleted}`);
+      return totalDeleted;
+    } catch (error: any) {
+      console.error("❌ Error deleting uploaded files:", error);
+      throw new Error(`Fayllarni o'chirishda xatolik: ${error.message}`);
+    }
+  }
+
+  /**
+   * Excel fayllarni o'chirish (updatesData/uploads)
+   */
+  private async deleteExcelFiles() {
+    try {
+      console.log("🗑️ === DELETING EXCEL FILES ===");
+
+      const excelDir = path.join(__dirname, "../../updatesData/uploads");
+
+      // Directory mavjudligini tekshirish
+      if (!fs.existsSync(excelDir)) {
+        console.log(`⚠️ Excel directory not found: ${excelDir}`);
+        return 0;
+      }
+
+      // Directory ichidagi barcha fayllarni o'qish
+      const files = fs.readdirSync(excelDir);
+      let totalDeleted = 0;
+
+      for (const file of files) {
+        // .gitkeep faylini o'chirmaslik
+        if (file === ".gitkeep") {
+          continue;
+        }
+
+        const filePath = path.join(excelDir, file);
+
+        try {
+          // Faylni o'chirish
+          fs.unlinkSync(filePath);
+          totalDeleted++;
+          console.log(`✅ Deleted Excel: ${file}`);
+        } catch (error: any) {
+          console.error(`❌ Error deleting ${filePath}:`, error.message);
+        }
+      }
+
+      console.log(`✅ Total Excel files deleted: ${totalDeleted}`);
+      return totalDeleted;
+    } catch (error: any) {
+      console.error("❌ Error deleting Excel files:", error);
+      throw new Error(`Excel fayllarni o'chirishda xatolik: ${error.message}`);
+    }
+  }
+
   /**
    * Barcha mijozlar, shartnomalar, to'lovlar va balanslarni tozalash
    * Faqat super admin va adminlar uchun
@@ -63,9 +161,17 @@ class ResetService {
         `✅ ${updatedBalances.modifiedCount} ta balans 0 ga qaytarildi`
       );
 
+      // 9. Yuklangan fayllarni o'chirish (passport, photo, shartnoma)
+      const deletedFiles = await this.deleteUploadedFiles();
+      console.log(`✅ ${deletedFiles} ta fayl o'chirildi`);
+
+      // 10. Excel fayllarni o'chirish
+      const deletedExcelFiles = await this.deleteExcelFiles();
+      console.log(`✅ ${deletedExcelFiles} ta Excel fayl o'chirildi`);
+
       return {
         success: true,
-        message: "Barcha ma'lumotlar muvaffaqiyatli tozalandi",
+        message: "Barcha ma'lumotlar va fayllar muvaffaqiyatli tozalandi",
         deletedCounts: {
           payments: deletedPayments.deletedCount,
           contracts: deletedContracts.deletedCount,
@@ -75,6 +181,8 @@ class ResetService {
           customerAuths: deletedCustomerAuths.deletedCount,
           notes: deletedNotes.deletedCount,
           balancesReset: updatedBalances.modifiedCount,
+          uploadedFiles: deletedFiles,
+          excelFiles: deletedExcelFiles,
         },
       };
     } catch (error: any) {

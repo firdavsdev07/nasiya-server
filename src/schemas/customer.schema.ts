@@ -3,6 +3,16 @@ import { IEmployee } from "./employee.schema";
 import { IAuth } from "./auth.schema";
 import { BaseSchema, IBase } from "./base.schema";
 
+export interface ICustomerEdit {
+  date: Date;
+  editedBy: IEmployee | string; // Kim tahrirlagan
+  changes: {
+    field: string;
+    oldValue: any;
+    newValue: any;
+  }[];
+}
+
 export interface ICustomer extends IBase {
   firstName: string;
   lastName: string;
@@ -20,7 +30,27 @@ export interface ICustomer extends IBase {
     shartnoma?: string;
     photo?: string;
   };
+  editHistory?: ICustomerEdit[]; // Tahrirlash tarixi
 }
+
+const CustomerEditSchema = new Schema<ICustomerEdit>(
+  {
+    date: { type: Date, required: true },
+    editedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Employee",
+      required: true,
+    },
+    changes: [
+      {
+        field: { type: String, required: true },
+        oldValue: { type: Schema.Types.Mixed },
+        newValue: { type: Schema.Types.Mixed },
+      },
+    ],
+  },
+  { _id: false }
+);
 
 const CustomerSchema = new Schema<ICustomer>(
   {
@@ -48,6 +78,7 @@ const CustomerSchema = new Schema<ICustomer>(
       shartnoma: { type: String },
       photo: { type: String },
     },
+    editHistory: { type: [CustomerEditSchema], default: [] },
   },
   {
     timestamps: true,

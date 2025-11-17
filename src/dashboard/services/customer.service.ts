@@ -99,10 +99,15 @@ class CustomerService {
     }
     const customer = await Customer.findOne({
       _id: customerId,
-    }).populate({
-      path: "manager",
-      select: "firstName lastName _id isDeleted",
-    });
+    })
+      .populate({
+        path: "manager",
+        select: "firstName lastName _id isDeleted",
+      })
+      .populate({
+        path: "editHistory.editedBy",
+        select: "firstName lastName _id",
+      });
 
     if (!customer) {
       throw BaseError.BadRequest("Customer topilmadi");
@@ -272,7 +277,7 @@ class CustomerService {
     return { message: "Mijoz yaratildi.", customer };
   }
 
-  async update(data: UpdateCustomerDto, files?: any) {
+  async update(data: UpdateCustomerDto, files?: any, user?: any) {
     const customer = await Customer.findOne({
       _id: data.id,
       isDeleted: false,
@@ -282,16 +287,105 @@ class CustomerService {
       throw BaseError.NotFoundError("Mijoz topilmadi.");
     }
 
+    // ✅ Tahrirlash tarixini yig'ish
+    const changes: any[] = [];
+
+    if (data.firstName && data.firstName !== customer.firstName) {
+      changes.push({
+        field: "Ism",
+        oldValue: customer.firstName,
+        newValue: data.firstName,
+      });
+    }
+
+    if (data.lastName && data.lastName !== customer.lastName) {
+      changes.push({
+        field: "Familiya",
+        oldValue: customer.lastName,
+        newValue: data.lastName,
+      });
+    }
+
+    if (data.phoneNumber && data.phoneNumber !== customer.phoneNumber) {
+      changes.push({
+        field: "Telefon",
+        oldValue: customer.phoneNumber,
+        newValue: data.phoneNumber,
+      });
+    }
+
+    if (
+      data.passportSeries &&
+      data.passportSeries !== customer.passportSeries
+    ) {
+      changes.push({
+        field: "Passport",
+        oldValue: customer.passportSeries,
+        newValue: data.passportSeries,
+      });
+    }
+
+    if (data.address && data.address !== customer.address) {
+      changes.push({
+        field: "Manzil",
+        oldValue: customer.address,
+        newValue: data.address,
+      });
+    }
+
+    if (
+      data.birthDate &&
+      new Date(data.birthDate).getTime() !==
+        new Date(customer.birthDate).getTime()
+    ) {
+      changes.push({
+        field: "Tug'ilgan sana",
+        oldValue: customer.birthDate,
+        newValue: data.birthDate,
+      });
+    }
+
+    if (data.managerId && data.managerId !== customer.manager?.toString()) {
+      // Manager o'zgarishini to'liq ma'lumot bilan saqlash
+      const oldManager = await Employee.findById(customer.manager);
+      const newManager = await Employee.findById(data.managerId);
+
+      changes.push({
+        field: "Manager",
+        oldValue: oldManager
+          ? `${oldManager.firstName} ${oldManager.lastName || ""}`
+          : customer.manager?.toString() || "—",
+        newValue: newManager
+          ? `${newManager.firstName} ${newManager.lastName || ""}`
+          : data.managerId,
+      });
+    }
+
     const { deleteFile } = await import("../../middlewares/upload.middleware");
     if (files) {
       if (files.passport && files.passport[0] && customer.files?.passport) {
         deleteFile(customer.files.passport);
+        changes.push({
+          field: "Passport fayli",
+          oldValue: "Eski fayl",
+          newValue: "Yangi fayl",
+        });
       }
       if (files.shartnoma && files.shartnoma[0] && customer.files?.shartnoma) {
         deleteFile(customer.files.shartnoma);
+        changes.push({
+          field: "Shartnoma fayli",
+          oldValue: "Eski fayl",
+          newValue: "Yangi fayl",
+        });
       }
       if (files.photo && files.photo[0] && customer.files?.photo) {
         deleteFile(customer.files.photo);
+        changes.push({
+          field: "Foto",
+          oldValue: "Eski fayl",
+          newValue: "Yangi fayl",
+        });
       }
     }
 
@@ -308,6 +402,22 @@ class CustomerService {
       }
     }
 
+    // ✅ Tahrirlash tarixini qo'shish
+    const editHistory = customer.editHistory || [];
+    if (changes.length > 0 && user) {
+      editHistory.push({
+        date: new Date(),
+        editedBy: user.sub,
+        changes,
+      });
+
+      console.log("📝 Customer edit history:", {
+        customerId: customer._id,
+        editedBy: user.sub,
+        changesCount: changes.length,
+      });
+    }
+
     await Customer.findOneAndUpdate(
       { _id: data.id, isDeleted: false },
       {
@@ -320,10 +430,14 @@ class CustomerService {
         manager: data.managerId,
         isActive: true,
         files: customerFiles,
+        editHistory,
       }
     ).exec();
 
-    return { message: "Mijoz ma'lumotlari yangilandi." };
+    return {
+      message: "Mijoz ma'lumotlari yangilandi.",
+      changesCount: changes.length,
+    };
   }
 
   async delete(id: string) {

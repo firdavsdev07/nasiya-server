@@ -95,6 +95,7 @@ class CustomerController {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
+      const user = req.user; // ✅ User ma'lumotini olish
       const customerData = plainToInstance(UpdateCustomerDto, req.body || {});
       const errors = await validate(customerData);
       if (errors.length > 0) {
@@ -103,7 +104,7 @@ class CustomerController {
           BaseError.BadRequest("Mijoz malumotlari xato.", formattedErrors)
         );
       }
-      const data = await customerService.update(customerData, req.files);
+      const data = await customerService.update(customerData, req.files, user); // ✅ User'ni pass qilish
       res.status(200).json(data);
     } catch (error) {
       return next(error);

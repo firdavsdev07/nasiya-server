@@ -1034,6 +1034,54 @@ class ContractService {
           },
         },
       },
+      // ✅ editHistory.editedBy ni populate qilish
+      {
+        $lookup: {
+          from: "employees",
+          localField: "editHistory.editedBy",
+          foreignField: "_id",
+          as: "editHistoryEmployees",
+        },
+      },
+      {
+        $addFields: {
+          editHistory: {
+            $map: {
+              input: "$editHistory",
+              as: "edit",
+              in: {
+                date: "$$edit.date",
+                editedBy: {
+                  $let: {
+                    vars: {
+                      employee: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$editHistoryEmployees",
+                              as: "emp",
+                              cond: { $eq: ["$$emp._id", "$$edit.editedBy"] },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    in: {
+                      _id: "$$employee._id",
+                      firstName: "$$employee.firstName",
+                      lastName: "$$employee.lastName",
+                    },
+                  },
+                },
+                changes: "$$edit.changes",
+                affectedPayments: "$$edit.affectedPayments",
+                impactSummary: "$$edit.impactSummary",
+              },
+            },
+          },
+        },
+      },
       {
         $project: {
           _id: 1,
@@ -1056,6 +1104,7 @@ class ContractService {
           totalPaid: 1,
           remainingDebt: 1,
           info: 1, // ✅ Qo'shimcha ma'lumotlar (box, mbox, receipt, iCloud)
+          editHistory: 1, // ✅ Tahrirlash tarixi
           createdAt: 1,
           updatedAt: 1,
         },
