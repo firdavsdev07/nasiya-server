@@ -70,21 +70,41 @@ class PaymentService {
         return;
       }
 
+      // ✅ actualAmount yoki amount ishlatish (haqiqatda to'langan summa)
       const totalPaid = (contract.payments as any[])
         .filter((p) => p.isPaid)
-        .reduce((sum, p) => sum + p.amount, 0);
+        .reduce((sum, p) => sum + (p.actualAmount || p.amount), 0);
+
+      // ✅ Prepaid balance ham qo'shish
+      const totalPaidWithPrepaid = totalPaid + (contract.prepaidBalance || 0);
 
       console.log("📊 Contract completion check:", {
         contractId,
         totalPaid,
+        prepaidBalance: contract.prepaidBalance || 0,
+        totalPaidWithPrepaid,
         totalPrice: contract.totalPrice,
-        isComplete: totalPaid >= contract.totalPrice,
+        isComplete: totalPaidWithPrepaid >= contract.totalPrice,
+        currentStatus: contract.status,
       });
 
-      if (totalPaid >= contract.totalPrice) {
-        contract.status = ContractStatus.COMPLETED;
-        await contract.save();
-        console.log("✅ Contract completed:", contract._id);
+      // ✅ Agar to'liq to'langan bo'lsa - COMPLETED
+      if (totalPaidWithPrepaid >= contract.totalPrice) {
+        if (contract.status !== ContractStatus.COMPLETED) {
+          contract.status = ContractStatus.COMPLETED;
+          await contract.save();
+          console.log("✅ Contract status changed to COMPLETED:", contract._id);
+        }
+      } else {
+        // ✅ Agar to'liq to'lanmagan bo'lsa va COMPLETED bo'lsa - ACTIVE ga qaytarish
+        if (contract.status === ContractStatus.COMPLETED) {
+          contract.status = ContractStatus.ACTIVE;
+          await contract.save();
+          console.log(
+            "⚠️ Contract status changed back to ACTIVE:",
+            contract._id
+          );
+        }
       }
     } catch (error) {
       console.error("❌ Error checking contract completion:", error);

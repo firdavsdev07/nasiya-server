@@ -7,6 +7,7 @@ import startBot from "./bot/startBot";
 import bot from "./bot/main";
 import createCurrencyCourse from "./utils/createCurrencyCourse";
 import debtorService from "./dashboard/services/debtor.service";
+import { checkAllContractsStatus } from "./utils/checkAllContractsStatus";
 
 const PORT = process.env.PORT || 3000;
 
@@ -36,6 +37,16 @@ const startServer = async () => {
         console.error("Error in initial debtor creation:", error);
       }
     }, 5000);
+
+    // ✅ Shartnomalarning statusini tekshirish (10 soniyadan keyin)
+    setTimeout(async () => {
+      try {
+        console.log("🔍 Starting contract status check...");
+        await checkAllContractsStatus();
+      } catch (error) {
+        console.error("Error in contract status check:", error);
+      }
+    }, 10000);
 
     const used = process.memoryUsage().heapUsed / 1024 / 1024;
     console.log(`Dastur xotira iste'moli: ${Math.round(used * 100) / 100} MB`);

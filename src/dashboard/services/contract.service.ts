@@ -128,24 +128,33 @@ class ContractService {
       const contract = await Contract.findById(contractId).populate("payments");
       if (!contract) return;
 
+      // ✅ actualAmount yoki amount ishlatish (haqiqatda to'langan summa)
       const totalPaid = (contract.payments as any[])
         .filter((p: any) => p.isPaid)
-        .reduce((sum: number, p: any) => sum + p.amount, 0);
+        .reduce((sum: number, p: any) => sum + (p.actualAmount || p.amount), 0);
+
+      // ✅ Prepaid balance ham qo'shish
+      const totalPaidWithPrepaid = totalPaid + (contract.prepaidBalance || 0);
 
       console.log("📊 Contract status check:", {
         contractId,
         totalPaid,
+        prepaidBalance: contract.prepaidBalance || 0,
+        totalPaidWithPrepaid,
         totalPrice: contract.totalPrice,
         currentStatus: contract.status,
+        shouldBeCompleted: totalPaidWithPrepaid >= contract.totalPrice,
       });
 
-      if (totalPaid >= contract.totalPrice) {
+      // ✅ Agar to'liq to'langan bo'lsa - COMPLETED
+      if (totalPaidWithPrepaid >= contract.totalPrice) {
         if (contract.status !== ContractStatus.COMPLETED) {
           contract.status = ContractStatus.COMPLETED;
           await contract.save();
           console.log("✅ Contract status changed to COMPLETED");
         }
       } else {
+        // ✅ Agar to'liq to'lanmagan bo'lsa va COMPLETED bo'lsa - ACTIVE ga qaytarish
         if (contract.status === ContractStatus.COMPLETED) {
           contract.status = ContractStatus.ACTIVE;
           await contract.save();
@@ -198,8 +207,8 @@ class ContractService {
           if (changePercent > 50) {
             throw BaseError.BadRequest(
               `Oylik to'lovni 50% dan ko'p o'zgartirish mumkin emas. ` +
-              `Hozirgi o'zgarish: ${changePercent.toFixed(1)}%\n` +
-              `Eski qiymat: ${change.oldValue}, Yangi qiymat: ${change.newValue}, Farq: ${change.difference}`
+                `Hozirgi o'zgarish: ${changePercent.toFixed(1)}%\n` +
+                `Eski qiymat: ${change.oldValue}, Yangi qiymat: ${change.newValue}, Farq: ${change.difference}`
             );
           }
         }
@@ -347,9 +356,11 @@ class ContractService {
       const notes = await Notes.create({
         text: `Qo'shimcha to'lov: ${paymentMonth} oyi uchun oylik to'lov o'zgarishi tufayli ${amount.toFixed(
           2
-        )} yetishmayapti.\n\nAsosiy to'lov: ${originalPayment.amount
-          }\nYangi oylik to'lov: ${originalPayment.expectedAmount
-          }\nYetishmayapti: ${amount.toFixed(2)}`,
+        )} yetishmayapti.\n\nAsosiy to'lov: ${
+          originalPayment.amount
+        }\nYangi oylik to'lov: ${
+          originalPayment.expectedAmount
+        }\nYetishmayapti: ${amount.toFixed(2)}`,
         customer: contract.customer,
         createBy: originalPayment.managerId,
       });
@@ -412,8 +423,9 @@ class ContractService {
       // 3. Notes yangilash (Requirement 6.4)
       initialPayment.notes.text += `\n\n📝 [${new Date().toLocaleDateString(
         "uz-UZ"
-      )}] Boshlang'ich to'lov o'zgartirildi: ${oldAmount} → ${initialPayment.amount
-        }`;
+      )}] Boshlang'ich to'lov o'zgartirildi: ${oldAmount} → ${
+        initialPayment.amount
+      }`;
       initialPayment.reason = PaymentReason.INITIAL_PAYMENT_CHANGE;
 
       await initialPayment.save();
@@ -740,7 +752,13 @@ class ContractService {
                   },
                 },
                 as: "pp",
-                in: { $cond: [{ $ifNull: ["$$pp.actualAmount", false] }, "$$pp.actualAmount", "$$pp.amount"] },
+                in: {
+                  $cond: [
+                    { $ifNull: ["$$pp.actualAmount", false] },
+                    "$$pp.actualAmount",
+                    "$$pp.amount",
+                  ],
+                },
               },
             },
           },
@@ -997,7 +1015,13 @@ class ContractService {
                   },
                 },
                 as: "pp",
-                in: { $cond: [{ $ifNull: ["$$pp.actualAmount", false] }, "$$pp.actualAmount", "$$pp.amount"] },
+                in: {
+                  $cond: [
+                    { $ifNull: ["$$pp.actualAmount", false] },
+                    "$$pp.actualAmount",
+                    "$$pp.amount",
+                  ],
+                },
               },
             },
           },
@@ -1339,9 +1363,10 @@ class ContractService {
           difference: monthlyPaymentDiff,
         });
         console.log(
-          `📅 Monthly payment change: ${contract.monthlyPayment} → ${data.monthlyPayment !== undefined
-            ? data.monthlyPayment
-            : contract.monthlyPayment
+          `📅 Monthly payment change: ${contract.monthlyPayment} → ${
+            data.monthlyPayment !== undefined
+              ? data.monthlyPayment
+              : contract.monthlyPayment
           } (${monthlyPaymentDiff > 0 ? "+" : ""}${monthlyPaymentDiff})`
         );
       }
@@ -1381,7 +1406,8 @@ class ContractService {
           difference: initialPaymentDiff,
         });
         console.log(
-          `💰 Initial payment change: ${oldValue} → ${newValue} (${initialPaymentDiff > 0 ? "+" : ""
+          `💰 Initial payment change: ${oldValue} → ${newValue} (${
+            initialPaymentDiff > 0 ? "+" : ""
           }${initialPaymentDiff})`
         );
       }
@@ -1403,9 +1429,10 @@ class ContractService {
           difference: totalPriceDiff,
         });
         console.log(
-          `📊 Total price change: ${contract.totalPrice} → ${data.totalPrice !== undefined
-            ? data.totalPrice
-            : contract.totalPrice
+          `📊 Total price change: ${contract.totalPrice} → ${
+            data.totalPrice !== undefined
+              ? data.totalPrice
+              : contract.totalPrice
           } (${totalPriceDiff > 0 ? "+" : ""}${totalPriceDiff})`
         );
       }
