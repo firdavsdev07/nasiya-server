@@ -85,13 +85,25 @@ class ResetService {
 
   /**
    * Reset qilish mumkinligini tekshirish
+   * Faqat Super Admin (ADMIN_PHONENUMBER) reset qila oladi
    */
   async canReset(userId: string) {
     try {
-      // Development mode'da har kim reset qila oladi
-      if (process.env.NODE_ENV === "development") {
-        console.log("⚠️ Development mode - allowing reset for all users");
-        return { canReset: true };
+      // Auth'ni tekshirish
+      const auth = await Auth.findById(userId);
+      if (!auth) {
+        console.log("❌ Auth not found:", userId);
+
+        // Development mode'da ruxsat berish
+        if (process.env.NODE_ENV === "development") {
+          console.log("⚠️ Development mode - allowing reset (auth not found)");
+          return { canReset: true };
+        }
+
+        return {
+          canReset: false,
+          reason: "Foydalanuvchi topilmadi.",
+        };
       }
 
       // Employee orqali role olish
@@ -101,26 +113,56 @@ class ResetService {
 
       if (!employee) {
         console.log("❌ Employee not found for auth:", userId);
+
+        // Development mode'da authenticated user'lar reset qila oladi
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            "⚠️ Development mode - allowing reset (no employee found)"
+          );
+          return { canReset: true };
+        }
+
         return {
           canReset: false,
-          reason:
-            "Xodim topilmadi. Faqat admin va moderatorlar reset qila oladi.",
+          reason: "Xodim topilmadi. Faqat Super Admin reset qila oladi.",
         };
       }
 
       const role = employee.role as any;
-      console.log("👤 User role:", role?.name);
+      console.log(
+        "👤 User:",
+        employee.firstName,
+        "| Role:",
+        role?.name,
+        "| Phone:",
+        employee.phoneNumber
+      );
 
-      const allowedRoles = [RoleEnum.ADMIN, RoleEnum.MODERATOR];
+      // Super Admin phone number'ini .env'dan olish
+      const superAdminPhone = process.env.ADMIN_PHONENUMBER;
 
-      if (!allowedRoles.includes(role?.name)) {
-        return {
-          canReset: false,
-          reason: `Sizning rolingiz: ${role?.name}. Faqat admin va moderatorlar reset qila oladi.`,
-        };
+      // Faqat Super Admin reset qila oladi
+      if (
+        employee.phoneNumber === superAdminPhone &&
+        role?.name === RoleEnum.ADMIN
+      ) {
+        console.log("✅ Super Admin - reset allowed");
+        return { canReset: true };
       }
 
-      return { canReset: true };
+      // Development mode'da admin va moderatorlar ham reset qila oladi
+      if (process.env.NODE_ENV === "development") {
+        const allowedRoles = [RoleEnum.ADMIN, RoleEnum.MODERATOR];
+        if (allowedRoles.includes(role?.name)) {
+          console.log("⚠️ Development mode - allowing reset for:", role?.name);
+          return { canReset: true };
+        }
+      }
+
+      return {
+        canReset: false,
+        reason: "Faqat Super Admin reset qila oladi.",
+      };
     } catch (error: any) {
       console.error("❌ canReset error:", error);
       throw new Error(`Ruxsat tekshirishda xatolik: ${error.message}`);
