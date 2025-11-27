@@ -170,16 +170,13 @@ phoneScene.on("contact", async (ctx) => {
         `✅ Tasdiqlandi!\n\n` +
           `👤 Ism: ${employee.firstName} ${employee.lastName}\n` +
           `🎯 Rol: ${roleName}\n\n` +
-          `📊 Manager panelingizga kirish uchun quyidagi tugmani bosing:\n\n` +
-          `⚠️ Agar Desktop Telegram'da tugma ishlamasa, quyidagi linkni brauzerda oching:\n` +
-          `🔗 ${webAppUrl}`,
+          `📊 Manager panelingizga kirish uchun quyidagi tugmani bosing:`,
         Markup.inlineKeyboard([
           [Markup.button.webApp("📊 Manager Panel", webAppUrl)],
-          [Markup.button.url("🌐 Brauzerda ochish", webAppUrl)],
         ])
       );
 
-      console.log("✅ Manager panel tugmasi yuborildi (inline + URL)");
+      console.log("✅ Manager panel tugmasi yuborildi");
       console.log("=".repeat(60) + "\n");
     } else {
       console.log("❌ EMPLOYEE TOPILMADI");
