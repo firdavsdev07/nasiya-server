@@ -66,17 +66,21 @@ class PaymentSrvice {
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: false, // ❌ Hali tasdiqlanmagan
+      isPaid: false, // Hali tasdiqlanmagan
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PENDING, // ⏳ PENDING - kassaga tushadi
+      status: PaymentStatus.PENDING, // PENDING - kassaga tushadi
       expectedAmount: contract?.monthlyPayment,
+      targetMonth: payData.targetMonth, // ✅ Yangi: targetMonth'ni saqlash
     });
 
-    console.log("✅ Payment created (PENDING - Bot):", paymentDoc._id);
-    console.log("⏳ Waiting for cash confirmation...");
+    // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
+    if (contract) {
+      contract.payments.push(paymentDoc._id); // ObjectId ni saqlaymiz
+      await contract.save(); // Contract'ni yangilash
+    }
 
     // ✅ YANGI: nextPaymentDate ni DARHOL yangilash (botda ko'rish uchun)
     if (contract && contract.nextPaymentDate) {
@@ -164,17 +168,21 @@ class PaymentSrvice {
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: false, // ❌ Hali tasdiqlanmagan
+      isPaid: false, // Hali tasdiqlanmagan
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PENDING, // ⏳ PENDING - kassaga tushadi
+      status: PaymentStatus.PENDING, // PENDING - kassaga tushadi
       expectedAmount: existingContract.monthlyPayment,
+      targetMonth: payData.targetMonth, // ✅ Yangi: targetMonth'ni saqlash
     });
 
-    console.log("✅ Payment created (PENDING - Bot):", paymentDoc._id);
-    console.log("⏳ Waiting for cash confirmation...");
+    // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
+    if (existingContract) {
+      existingContract.payments.push(paymentDoc._id); // ObjectId ni saqlaymiz
+      await existingContract.save(); // Contract'ni yangilash
+    }
 
     // ✅ YANGI: nextPaymentDate ni DARHOL yangilash (botda ko'rish uchun)
     if (existingContract && existingContract.nextPaymentDate) {

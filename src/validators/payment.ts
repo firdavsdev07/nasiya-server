@@ -29,6 +29,10 @@ export class PayDto {
   @IsOptional()
   notes?: string;
 
+  @IsNumber({}, { message: "Target oy raqam bo'lishi kerak" })
+  @IsOptional()
+  targetMonth?: number; // ✅ Yangi: Qaysi oyga to'lov qilinayotgani
+
   @ValidateNested()
   @Type(() => CurrencyDetailsDto)
   currencyDetails: CurrencyDetailsDto;
