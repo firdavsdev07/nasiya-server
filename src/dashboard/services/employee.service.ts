@@ -5,7 +5,7 @@ import {
   CreateEmployeeDto,
   UpdateEmployeeDto,
 } from "../../validators/employee";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import Auth from "../../schemas/auth.schema";
 import { RoleEnum } from "../../enums/role.enum";
 import { Role } from "../../schemas/role.schema";

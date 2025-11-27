@@ -10,7 +10,7 @@ import Contract, { ContractStatus } from "../../schemas/contract.schema";
 import Employee from "../../schemas/employee.schema";
 import { Role } from "../../schemas/role.schema";
 import { RoleEnum } from "../../enums/role.enum";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import Notes from "../../schemas/notes.schema";
 
 export const importContractsFromCSV = async (filePath: string) => {

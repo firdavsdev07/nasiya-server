@@ -1,3 +1,3 @@
-declare module "bcrypt";
+declare module "bcryptjs";
 declare module "cors";
 declare module "jsonwebtoken";

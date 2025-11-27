@@ -2,7 +2,7 @@
 import { RoleEnum } from "../enums/role.enum";
 import { Permission } from "../enums/permission.enum";
 import Auth from "../schemas/auth.schema";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import Employee from "../schemas/employee.schema";
 import { Role } from "../schemas/role.schema";
 

@@ -1,5 +1,5 @@
 import BaseError from "../../utils/base.error";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { LoginDto } from "../../validators/auth";
 import Employee from "../../schemas/employee.schema";
 import IJwtUser from "../../types/user";

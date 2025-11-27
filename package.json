@@ -5,7 +5,7 @@
   "scripts": {
     "starttest": "tsc && node dist/server.js",
     "start": "node dist/server.js",
-    "dev": "nodemon src/server.ts",
+    "dev": "ts-node-dev src/server.ts",
     "build": "tsc",
     "render-build": "npm install && npm run build",
     "render-start": "node --max-old-space-size=256 dist/server.js",
@@ -22,7 +22,7 @@
   "description": "",
   "dependencies": {
     "@types/cookie-parser": "^1.4.8",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.7",
@@ -41,7 +41,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.9",
