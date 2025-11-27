@@ -63,17 +63,32 @@ class PaymentSrvice {
 
     const contract = await Contract.findById(existingDebtor.contractId._id);
 
+    // ✅ YANGI LOGIKA: Ortiqcha/kam summani hisoblash
+    const amountPaid = payData.amount;
+    const expectedMonthlyPayment = contract?.monthlyPayment || 0;
+
+    let calculatedExcessAmount = 0;
+    let calculatedRemainingAmount = 0;
+
+    if (amountPaid > expectedMonthlyPayment) {
+      calculatedExcessAmount = amountPaid - expectedMonthlyPayment;
+    } else if (amountPaid < expectedMonthlyPayment) {
+      calculatedRemainingAmount = expectedMonthlyPayment - amountPaid;
+    }
+
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: false, // Hali tasdiqlanmagan
+      isPaid: false,
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PENDING, // PENDING - kassaga tushadi
-      expectedAmount: contract?.monthlyPayment,
-      targetMonth: payData.targetMonth, // ✅ Yangi: targetMonth'ni saqlash
+      status: PaymentStatus.PENDING,
+      expectedAmount: expectedMonthlyPayment, // Kutilgan oylik to'lov
+      excessAmount: calculatedExcessAmount, // Hisoblangan ortiqcha
+      remainingAmount: calculatedRemainingAmount, // Hisoblangan kam to'langan
+      targetMonth: payData.targetMonth,
     });
 
     // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
@@ -165,16 +180,31 @@ class PaymentSrvice {
       "../../schemas/payment.schema"
     );
 
+    // ✅ YANGI LOGIKA: Ortiqcha/kam summani hisoblash
+    const amountPaid = payData.amount;
+    const expectedMonthlyPayment = existingContract.monthlyPayment;
+
+    let calculatedExcessAmount = 0;
+    let calculatedRemainingAmount = 0;
+
+    if (amountPaid > expectedMonthlyPayment) {
+      calculatedExcessAmount = amountPaid - expectedMonthlyPayment;
+    } else if (amountPaid < expectedMonthlyPayment) {
+      calculatedRemainingAmount = expectedMonthlyPayment - amountPaid;
+    }
+
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: false, // Hali tasdiqlanmagan
+      isPaid: false,
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
       status: PaymentStatus.PENDING, // PENDING - kassaga tushadi
-      expectedAmount: existingContract.monthlyPayment,
+      expectedAmount: expectedMonthlyPayment, // Kutilgan oylik to'lov
+      excessAmount: calculatedExcessAmount, // Hisoblangan ortiqcha
+      remainingAmount: calculatedRemainingAmount, // Hisoblangan kam to'langan
       targetMonth: payData.targetMonth, // ✅ Yangi: targetMonth'ni saqlash
     });
 
