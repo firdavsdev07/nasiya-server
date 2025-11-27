@@ -300,11 +300,10 @@ class PaymentService {
 
       console.log("✅ Payment confirmed:", payment._id);
 
-      // 2. Contract'ni topish
+      // 2. Contract'ni topish - Bu to'lovga tegishli shartnomani topamiz
       const contract = await Contract.findOne({
-        customer: payment.customerId,
-        status: ContractStatus.ACTIVE,
-      });
+        payments: payment._id, // To'lov ID si orqali shartnomani topamiz
+      }).populate("payments"); // Payments ni ham populate qilamiz
 
       if (!contract) {
         throw BaseError.NotFoundError("Shartnoma topilmadi");
