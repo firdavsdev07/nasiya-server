@@ -55,8 +55,6 @@
 //   }
 // });
 
-
-
 // phoneScene.on("text", async (ctx) => {
 //   try {
 //     await ctx.reply(
@@ -74,7 +72,6 @@
 
 // export default phoneScene;
 
-
 import { Markup, Scenes } from "telegraf";
 import Employee from "../../../schemas/employee.schema";
 import { MyContext } from "../../utils/context";
@@ -89,7 +86,7 @@ phoneScene.enter(async (ctx) => {
 
     await ctx.reply(
       "👋 Assalomu alaykum!\n\n" +
-      "📲 Manager panelga kirish uchun telefon raqamingizni yuboring:",
+        "📲 Manager panelga kirish uchun telefon raqamingizni yuboring:",
       Markup.keyboard([
         Markup.button.contactRequest("📱 Telefon raqamni yuborish"),
       ])
@@ -151,9 +148,9 @@ phoneScene.on("contact", async (ctx) => {
 
         await ctx.reply(
           "❌ Ruxsat yo'q\n\n" +
-          "Sizda manager panelga kirish huquqi yo'q.\n" +
-          `Sizning rolingiz: ${roleName}\n\n` +
-          "Iltimos, administrator bilan bog'laning."
+            "Sizda manager panelga kirish huquqi yo'q.\n" +
+            `Sizning rolingiz: ${roleName}\n\n` +
+            "Iltimos, administrator bilan bog'laning."
         );
         return;
       }
@@ -171,17 +168,19 @@ phoneScene.on("contact", async (ctx) => {
 
       await ctx.reply(
         `✅ Tasdiqlandi!\n\n` +
-        `👤 Ism: ${employee.firstName} ${employee.lastName}\n` +
-        `🎯 Rol: ${roleName}\n\n` +
-        `📊 Manager panelingizga kirish uchun quyidagi tugmani bosing:`,
+          `👤 Ism: ${employee.firstName} ${employee.lastName}\n` +
+          `🎯 Rol: ${roleName}\n\n` +
+          `📊 Manager panelingizga kirish uchun quyidagi tugmani bosing:\n\n` +
+          `⚠️ Agar Desktop Telegram'da tugma ishlamasa, quyidagi linkni brauzerda oching:\n` +
+          `🔗 ${webAppUrl}`,
         Markup.inlineKeyboard([
-          [Markup.button.webApp("📊 Manager Panel", webAppUrl)]
+          [Markup.button.webApp("📊 Manager Panel", webAppUrl)],
+          [Markup.button.url("🌐 Brauzerda ochish", webAppUrl)],
         ])
       );
 
-      console.log("✅ Manager panel tugmasi yuborildi (inline)");
+      console.log("✅ Manager panel tugmasi yuborildi (inline + URL)");
       console.log("=".repeat(60) + "\n");
-
     } else {
       console.log("❌ EMPLOYEE TOPILMADI");
       console.log("   - Qidirilgan raqam:", phoneNumber);
@@ -189,20 +188,24 @@ phoneScene.on("contact", async (ctx) => {
 
       // Debug: Barcha employee'larni ko'rsatish
       const allEmployees = await Employee.find({
-        isDeleted: false
+        isDeleted: false,
       }).select("phoneNumber firstName lastName isActive");
 
       console.log("📋 Bazadagi barcha employee'lar:");
       allEmployees.forEach((emp, index) => {
-        console.log(`   ${index + 1}. ${emp.phoneNumber} - ${emp.firstName} ${emp.lastName} (Faol: ${emp.isActive})`);
+        console.log(
+          `   ${index + 1}. ${emp.phoneNumber} - ${emp.firstName} ${
+            emp.lastName
+          } (Faol: ${emp.isActive})`
+        );
       });
       console.log("=".repeat(60) + "\n");
 
       await ctx.reply(
         "❌ Ruxsat yo'q\n\n" +
-        "Sizda ushbu bo'limga kirish uchun yetarli huquq yo'q. " +
-        "Agar bu xatolik deb hisoblasangiz, iltimos, administrator bilan bog'laning.\n\n" +
-        `📞 Yuborilgan raqam: ${phoneNumber}`
+          "Sizda ushbu bo'limga kirish uchun yetarli huquq yo'q. " +
+          "Agar bu xatolik deb hisoblasangiz, iltimos, administrator bilan bog'laning.\n\n" +
+          `📞 Yuborilgan raqam: ${phoneNumber}`
       );
     }
   } catch (e: any) {
@@ -210,8 +213,7 @@ phoneScene.on("contact", async (ctx) => {
     console.log("Stack:", e.stack);
 
     await ctx.reply(
-      "❌ Xatolik yuz berdi.\n\n" +
-      "Iltimos, /start ni qayta bosing."
+      "❌ Xatolik yuz berdi.\n\n" + "Iltimos, /start ni qayta bosing."
     );
   }
 });
