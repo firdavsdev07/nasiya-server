@@ -152,7 +152,6 @@ class CustomerService {
             },
           },
         },
-        // Mijozlar bo'yicha guruhlash
         {
           $group: {
             _id: "$customer._id",
@@ -519,8 +518,9 @@ class CustomerService {
                     cond: {
                       $or: [
                         { $eq: ["$$p.isPaid", true] },
-                        { $eq: ["$$p.status", "PAID"] }
-                      ]
+                        { $eq: ["$$p.status", "PAID"] },
+                        { $eq: ["$$p.status", "PENDING"] }, // ✅ PENDING to'lovlarni ham hisobga olish
+                      ],
                     },
                   },
                 },
@@ -568,6 +568,7 @@ class CustomerService {
                 remainingAmount: "$$payment.remainingAmount",
                 excessAmount: "$$payment.excessAmount",
                 expectedAmount: "$$payment.expectedAmount",
+                targetMonth: "$$payment.targetMonth", // ✅ Add targetMonth
               },
             },
           },
@@ -581,7 +582,8 @@ class CustomerService {
                     {
                       $or: [
                         { $eq: ["$$p.isPaid", true] },
-                        { $eq: ["$$p.status", "PAID"] }
+                        { $eq: ["$$p.status", "PAID"] },
+                        { $eq: ["$$p.status", "PENDING"] } // ✅ PENDING to'lovlarni ham hisobga olish
                       ]
                     },
                     { $eq: ["$$p.paymentType", "monthly"] }
@@ -665,7 +667,8 @@ class CustomerService {
                         cond: {
                           $or: [
                             { $eq: ["$$p.isPaid", true] },
-                            { $eq: ["$$p.status", "PAID"] }
+                            { $eq: ["$$p.status", "PAID"] },
+                            { $eq: ["$$p.status", "PENDING"] } // ✅ PENDING to'lovlarni ham hisobga olish
                           ]
                         },
                       },
@@ -698,7 +701,7 @@ class CustomerService {
           startDate: "$contract.startDate",
           initialPayment: "$contract.initialPayment",
           initialPaymentDueDate: "$contract.initialPaymentDueDate",
-          period: "$contract.period",
+          period: 1,
           nextPaymentDate: "$contract.nextPaymentDate",
           previousPaymentDate: "$contract.previousPaymentDate",
           postponedAt: "$contract.postponedAt",
@@ -714,7 +717,8 @@ class CustomerService {
                     {
                       $or: [
                         { $eq: ["$$p.isPaid", true] },
-                        { $eq: ["$$p.status", "PAID"] }
+                        { $eq: ["$$p.status", "PAID"] }, // Corrected: removed extra $
+                        { $eq: ["$$p.status", "PENDING"] } // ✅ PENDING to'lovlarni ham hisobga olish
                       ]
                     },
                     { $eq: ["$$p.paymentType", "monthly"] }
@@ -739,6 +743,7 @@ class CustomerService {
                 remainingAmount: "$$payment.remainingAmount",
                 excessAmount: "$$payment.excessAmount",
                 expectedAmount: "$$payment.expectedAmount",
+                targetMonth: "$$payment.targetMonth", // ✅ Add targetMonth
               },
             },
           },
@@ -753,7 +758,7 @@ class CustomerService {
       durationMonths: c.durationMonths,
       paymentsCount: c.payments?.length || 0,
       payments: c.payments?.map((p: any) => ({
-        paymentType: p.paymentType,
+        paymentType: p.type, // Make sure this is correct
         isPaid: p.isPaid,
         amount: p.amount,
       })),
