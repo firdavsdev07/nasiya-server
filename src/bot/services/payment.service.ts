@@ -78,7 +78,7 @@ class PaymentSrvice {
 
     // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
     if (contract) {
-      contract.payments.push(paymentDoc._id); // ObjectId ni saqlaymiz
+      contract.payments.push(paymentDoc as any); // ✅ ObjectId ni emas, to'liq paymentDoc ni qo'shamiz (Mongoose o'zi _id ni ajratib oladi)
       await contract.save(); // Contract'ni yangilash
     }
 
@@ -180,7 +180,7 @@ class PaymentSrvice {
 
     // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
     if (existingContract) {
-      existingContract.payments.push(paymentDoc._id); // ObjectId ni saqlaymiz
+      existingContract.payments.push(paymentDoc as any); // ✅ ObjectId ni emas, to'liq paymentDoc ni qo'shamiz (Mongoose o'zi _id ni ajratib oladi)
       await existingContract.save(); // Contract'ni yangilash
     }
 
