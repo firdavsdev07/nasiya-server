@@ -494,7 +494,7 @@ class CustomerService {
       {
         $match: {
           customer: new Types.ObjectId(customerId),
-          status: "active", // ✅ To'g'ri - kichik harflar
+          status: { $in: ["active", "completed"] },
         },
       },
       {
