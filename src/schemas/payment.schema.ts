@@ -102,7 +102,7 @@ const PaymentSchema = new Schema<IPayment>(
       ref: "Payment",
       required: false,
     },
-    targetMonth: { type: Number }, // ✅ YANGI - Qaysi oyga to'lov qilinmoqda
+    targetMonth: { type: Number, required: true }, // ✅ YANGI - Qaysi oyga to'lov qilinmoqda (REQUIRED)
   },
   {
     timestamps: true,

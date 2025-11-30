@@ -59,6 +59,136 @@ class PaymentService {
   }
 
   /**
+   * Ortiqcha to'lovni boshqarish - Keyingi oylar uchun avtomatik to'lovlar yaratish
+   * Requirements: 8.5
+   * 
+   * @param excessAmount - Ortiqcha summa
+   * @param contract - Shartnoma
+   * @param payment - Asosiy to'lov
+   * @param user - Foydalanuvchi
+   */
+  private async processExcessPayment(
+    excessAmount: number,
+    contract: any,
+    payment: any,
+    user: IJwtUser
+  ): Promise<any[]> {
+    const createdPayments = [];
+    
+    if (excessAmount <= 0.01) {
+      return createdPayments;
+    }
+
+    console.log(`💰 Processing excess amount: ${excessAmount.toFixed(2)} $`);
+
+    let remainingExcess = excessAmount;
+    const monthlyPayment = contract.monthlyPayment;
+
+    // Barcha to'lovlarni olish
+    const allPayments = await Payment.find({
+      _id: { $in: contract.payments },
+    }).sort({ date: 1 });
+
+    // To'langan oylik to'lovlar sonini hisoblash
+    const paidMonthlyPayments = allPayments.filter(
+      (p) => p.paymentType === PaymentType.MONTHLY && p.isPaid
+    );
+    let currentMonthIndex = paidMonthlyPayments.length;
+
+    console.log(`📊 Current state:`, {
+      totalPayments: allPayments.length,
+      paidMonthlyPayments: paidMonthlyPayments.length,
+      nextMonthIndex: currentMonthIndex + 1,
+      contractPeriod: contract.period,
+    });
+
+    // Ortiqcha summani keyingi oylarga taqsimlash
+    while (remainingExcess > 0.01 && currentMonthIndex < contract.period) {
+      const monthNumber = currentMonthIndex + 1;
+
+      // Bu oy uchun to'lov summasi
+      const paymentAmount = Math.min(remainingExcess, monthlyPayment);
+      const shortageAmount =
+        paymentAmount < monthlyPayment ? monthlyPayment - paymentAmount : 0;
+
+      // Status aniqlash
+      let paymentStatus: PaymentStatus;
+      if (paymentAmount >= monthlyPayment - 0.01) {
+        paymentStatus = PaymentStatus.PAID;
+      } else {
+        paymentStatus = PaymentStatus.UNDERPAID;
+      }
+
+      // Notes yaratish
+      const notes = await Notes.create({
+        text: `${monthNumber}-oy to'lovi (ortiqcha summadan): ${paymentAmount.toFixed(
+          2
+        )} $${
+          shortageAmount > 0
+            ? `\n⚠️ ${shortageAmount.toFixed(2)} $ kam to'landi`
+            : ""
+        }`,
+        customer: payment.customerId,
+        createBy: String(payment.managerId),
+      });
+
+      // Payment yaratish
+      const newPayment = await Payment.create({
+        amount: monthlyPayment,
+        actualAmount: paymentAmount,
+        date: new Date(),
+        isPaid: true,
+        paymentType: PaymentType.MONTHLY,
+        customerId: payment.customerId,
+        managerId: payment.managerId,
+        notes: notes._id,
+        status: paymentStatus,
+        expectedAmount: monthlyPayment,
+        remainingAmount: shortageAmount,
+        excessAmount: 0,
+        confirmedAt: new Date(),
+        confirmedBy: user.sub,
+        targetMonth: monthNumber,
+      });
+
+      createdPayments.push(newPayment);
+
+      // Contract.payments ga qo'shish
+      (contract.payments as string[]).push(newPayment._id.toString());
+
+      console.log(`✅ Additional payment created for month ${monthNumber}:`, {
+        id: newPayment._id,
+        status: paymentStatus,
+        amount: paymentAmount,
+        expected: monthlyPayment,
+        shortage: shortageAmount,
+      });
+
+      remainingExcess -= paymentAmount;
+      currentMonthIndex++;
+    }
+
+    // Agar hali ham ortiqcha summa qolsa, prepaidBalance ga qo'shish
+    if (remainingExcess > 0.01) {
+      contract.prepaidBalance = (contract.prepaidBalance || 0) + remainingExcess;
+      console.log(
+        `💰 Prepaid balance updated: ${contract.prepaidBalance.toFixed(2)} $`
+      );
+      console.log(
+        `ℹ️ Remaining ${remainingExcess.toFixed(
+          2
+        )} $ added to prepaid balance (all months paid)`
+      );
+    }
+
+    console.log(
+      `✅ Created ${createdPayments.length} additional payment(s) from excess`
+    );
+
+    return createdPayments;
+  }
+
+  /**
    * Shartnoma to'liq to'langanini tekshirish
    * Requirements: 8.4
    */
@@ -214,12 +344,6 @@ class PaymentService {
       // Balance faqat kassa tasdiqlanganda yangilanadi (confirmPayment metodida)
       console.log("⏳ Balance NOT updated - waiting for cash confirmation");
 
-      // ✅ Contract.payments ga qo'shish
-      if (!contract.payments) {
-        contract.payments = [];
-      }
-      (contract.payments as any[]).push(payment._id);
-
       // ✅ Contract'da prepaid balance'ni yangilash (ko'p to'langan bo'lsa)
       if (prepaidAmount > 0) {
         contract.prepaidBalance =
@@ -228,7 +352,9 @@ class PaymentService {
       }
 
       await contract.save();
-      console.log("✅ Payment added to contract");
+      
+      console.log("⏳ Payment created but NOT added to contract.payments yet");
+      console.log("⏳ Will be added after cash confirmation");
 
       // ✅ Response'da to'lov holati haqida ma'lumot qaytarish
       let message = "To'lov muvaffaqiyatli qabul qilindi";
@@ -300,22 +426,41 @@ class PaymentService {
 
       console.log("✅ Payment confirmed:", payment._id);
 
-      // 2. Contract'ni topish - Bu to'lovga tegishli shartnomani topamiz
+      // ✅ YANGI: Payment'ni Contract.payments ga qo'shish
       const contract = await Contract.findOne({
-        payments: payment._id, // To'lov ID si orqali shartnomani topamiz
-      }).populate("payments"); // Payments ni ham populate qilamiz
+        customer: payment.customerId,
+        status: ContractStatus.ACTIVE,
+      });
 
       if (!contract) {
-        throw BaseError.NotFoundError("Shartnoma topilmadi");
+        throw BaseError.NotFoundError("Faol shartnoma topilmadi");
       }
 
-      // 3. Contract.payments ga qo'shish
+      // Agar payment hali contract.payments da bo'lmasa, qo'shish
       if (!contract.payments) {
         contract.payments = [];
       }
-      (contract.payments as string[]).push(payment._id.toString());
+      
+      const paymentExists = (contract.payments as any[]).some(
+        (p) => p.toString() === payment._id.toString()
+      );
 
-      console.log("✅ Payment added to contract:", contract._id);
+      if (!paymentExists) {
+        (contract.payments as any[]).push(payment._id);
+        console.log("✅ Payment added to contract.payments");
+      } else {
+        console.log("ℹ️ Payment already in contract.payments");
+      }
+
+      // 2. Balance yangilash
+      await this.updateBalance(String(payment.managerId), {
+        dollar: payment.amount,
+        sum: 0,
+      });
+      console.log("✅ Balance updated");
+
+      // 3. Contract'ni populate qilish
+      await contract.populate("payments");
 
       // ✅ YANGI: Agar ortiqcha to'lov bo'lsa, keyingi oylar uchun avtomatik to'lovlar yaratish
       const createdPayments = [];
@@ -445,6 +590,8 @@ class PaymentService {
           `✅ Created ${createdPayments.length} additional payment(s) from excess`
         );
       }
+
+      await contract.save();
 
       // 4. nextPaymentDate ni keyingi oyga o'tkazish (faqat oylik to'lovlar uchun)
       console.log("🔍 Checking nextPaymentDate update conditions:", {
@@ -610,27 +757,35 @@ class PaymentService {
         await payment.notes.save();
       }
 
-      // 3. ✅ YANGI: nextPaymentDate ni eski sanaga qaytarish
-      // (Chunki botda to'lov qilinganda darhol yangilangan edi)
-      if (payment.paymentType === PaymentType.MONTHLY) {
-        const contract = await Contract.findOne({
-          customer: payment.customerId,
-          status: ContractStatus.ACTIVE,
-        });
+      // 3. ✅ Payment'ni Contract.payments dan o'chirish
+      const contract = await Contract.findOne({
+        customer: payment.customerId,
+        status: ContractStatus.ACTIVE,
+      });
 
-        if (contract && contract.nextPaymentDate) {
-          const currentDate = new Date(contract.nextPaymentDate);
-          const previousMonth = new Date(currentDate);
-          previousMonth.setMonth(previousMonth.getMonth() - 1);
+      if (contract) {
+        // Payment'ni payments arraydan o'chirish
+        const paymentIndex = (contract.payments as any[]).findIndex(
+          (p) => p.toString() === payment._id.toString()
+        );
 
-          contract.nextPaymentDate = previousMonth;
-          await contract.save();
-
-          console.log("🔙 nextPaymentDate rolled back:", {
-            current: currentDate.toLocaleDateString("uz-UZ"),
-            rolledBack: previousMonth.toLocaleDateString("uz-UZ"),
-          });
+        if (paymentIndex !== -1) {
+          (contract.payments as any[]).splice(paymentIndex, 1);
+          console.log("✅ Payment removed from contract.payments");
         }
+
+        // Agar prepaid balance qo'shilgan bo'lsa, kamaytirish
+        if (payment.excessAmount && payment.excessAmount > 0) {
+          contract.prepaidBalance = Math.max(
+            0,
+            (contract.prepaidBalance || 0) - payment.excessAmount
+          );
+          console.log(
+            `✅ Prepaid balance reduced: ${contract.prepaidBalance} $`
+          );
+        }
+
+        await contract.save();
       }
 
       console.log("✅ Payment rejected:", payment._id);
@@ -879,28 +1034,15 @@ class PaymentService {
       }
 
       // ✅ YANGI: Agar ortiqcha to'lov bo'lsa, keyingi oylar uchun avtomatik to'lovlar yaratish
-      const createdPayments = [];
-      if (excessAmount > 0.01) {
-        console.log(
-          `💰 Processing excess amount: ${excessAmount.toFixed(2)} $`
-        );
+      const createdPayments = await this.processExcessPayment(
+        excessAmount,
+        contract,
+        existingPayment,
+        user
+      );
 
-        let remainingExcess = excessAmount;
-        const monthlyPayment = contract.monthlyPayment;
-
-        // Barcha to'lovlarni olish
-        const allPayments = await Payment.find({
-          _id: { $in: contract.payments },
-        }).sort({ date: 1 });
-
-        // To'langan oylik to'lovlar sonini hisoblash
-        const paidMonthlyPayments = allPayments.filter(
-          (p) => p.paymentType === PaymentType.MONTHLY && p.isPaid
-        );
-        let currentMonthIndex = paidMonthlyPayments.length;
-
-        console.log("📊 Creating additional payments from excess:", {
-          excessAmount: remainingExcess,
+      await contract.save();
+      console.log(
           monthlyPayment,
           currentMonthIndex,
           totalMonths: contract.period,

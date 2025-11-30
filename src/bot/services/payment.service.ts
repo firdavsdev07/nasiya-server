@@ -91,60 +91,18 @@ class PaymentSrvice {
       targetMonth: payData.targetMonth,
     });
 
-    // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
-    if (contract) {
-      contract.payments.push(paymentDoc as any); // ✅ ObjectId ni emas, to'liq paymentDoc ni qo'shamiz (Mongoose o'zi _id ni ajratib oladi)
-      await contract.save(); // Contract'ni yangilash
-    }
-
-    // ✅ YANGI: nextPaymentDate ni DARHOL yangilash (botda ko'rish uchun)
-    if (contract && contract.nextPaymentDate) {
-      const currentDate = new Date(contract.nextPaymentDate);
-
-      // ✅ MUHIM: Agar to'lov kechiktirilgan bo'lsa (postponed), asl sanaga qaytarish
-      let nextMonth: Date;
-
-      if (contract.isPostponedOnce && contract.previousPaymentDate && contract.postponedAt) {
-        // ✅ Kechiktirilgan to'lov to'landi - asl to'lov kuniga qaytarish
-        const originalDay = contract.originalPaymentDay || new Date(contract.previousPaymentDate).getDate();
-
-        // Hozirgi oydan keyingi oyni hisoblash
-        const today = new Date();
-        nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, originalDay);
-
-        console.log("🔄 Kechiktirilgan to'lov to'landi - asl sanaga qaytarildi:", {
-          postponedDate: currentDate.toLocaleDateString("uz-UZ"),
-          originalPaymentDay: originalDay,
-          nextDate: nextMonth.toLocaleDateString("uz-UZ"),
-        });
-
-        // ✅ Kechiktirilgan ma'lumotlarni tozalash
-        contract.previousPaymentDate = undefined;
-        contract.postponedAt = undefined;
-        contract.isPostponedOnce = false;
-      } else {
-        // Oddiy to'lov - asl to'lov kuniga qaytarish
-        // originalPaymentDay mavjud bo'lsa, uni ishlatamiz
-        const originalDay = contract.originalPaymentDay || currentDate.getDate();
-
-        // Hozirgi oydan keyingi oyni hisoblash
-        const today = new Date();
-        nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, originalDay);
-
-        console.log("📅 Oddiy to'lov - asl to'lov kuniga o'tkazildi:", {
-          old: currentDate.toLocaleDateString("uz-UZ"),
-          originalPaymentDay: originalDay,
-          new: nextMonth.toLocaleDateString("uz-UZ"),
-        });
-      }
-
-      contract.nextPaymentDate = nextMonth;
-      await contract.save();
-    }
-
+    // ❌ PENDING to'lovlar Contract.payments ga QOSHILMAYDI
+    // ✅ Faqat confirmPayment() da qo'shiladi (kassa tasdiqlangandan keyin)
+    
+    // ❌ nextPaymentDate YANGILANMAYDI
+    // ✅ Faqat confirmPayment() da yangilanadi (kassa tasdiqlangandan keyin)
+    
     // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
-    // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
     // ❌ Debtor o'chirilmaydi - faqat kassa tasdiqlanganda
+    
+    console.log("⏳ Payment created in PENDING status");
+    console.log("⏳ Waiting for cash confirmation");
+    console.log("⏳ nextPaymentDate will be updated after confirmation");
 
     return {
       status: "success",
@@ -208,54 +166,15 @@ class PaymentSrvice {
       targetMonth: payData.targetMonth, // ✅ Yangi: targetMonth'ni saqlash
     });
 
-    // ✅ YANGI LOGIKA: Payment'ni darhol contract.payments ga qo'shish
-    if (existingContract) {
-      existingContract.payments.push(paymentDoc as any); // ✅ ObjectId ni emas, to'liq paymentDoc ni qo'shamiz (Mongoose o'zi _id ni ajratib oladi)
-      await existingContract.save(); // Contract'ni yangilash
-    }
-
-    // ✅ YANGI: nextPaymentDate ni DARHOL yangilash (botda ko'rish uchun)
-    if (existingContract && existingContract.nextPaymentDate) {
-      const currentDate = new Date(existingContract.nextPaymentDate);
-
-      // ✅ MUHIM: Agar to'lov kechiktirilgan bo'lsa (postponed), asl sanaga qaytarish
-      let nextMonth: Date;
-
-      if (existingContract.previousPaymentDate && existingContract.postponedAt) {
-        // Kechiktirilgan to'lov to'landi - asl to'lov kuniga qaytarish
-        const originalDay = existingContract.originalPaymentDay || new Date(existingContract.previousPaymentDate).getDate();
-
-        // Hozirgi oydan keyingi oyni hisoblash
-        const today = new Date();
-        nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, originalDay);
-
-        console.log("🔄 Kechiktirilgan to'lov to'landi - asl sanaga qaytarildi:", {
-          postponedDate: currentDate.toLocaleDateString("uz-UZ"),
-          originalPaymentDay: originalDay,
-          nextDate: nextMonth.toLocaleDateString("uz-UZ"),
-        });
-
-        // Kechiktirilgan ma'lumotlarni tozalash
-        existingContract.previousPaymentDate = undefined;
-        existingContract.postponedAt = undefined;
-      } else {
-        // Oddiy to'lov - asl to'lov kuniga qaytarish
-        const originalDay = existingContract.originalPaymentDay || currentDate.getDate();
-
-        // Hozirgi oydan keyingi oyni hisoblash
-        const today = new Date();
-        nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, originalDay);
-
-        console.log("📅 Oddiy to'lov - asl to'lov kuniga o'tkazildi:", {
-          old: currentDate.toLocaleDateString("uz-UZ"),
-          originalPaymentDay: originalDay,
-          new: nextMonth.toLocaleDateString("uz-UZ"),
-        });
-      }
-
-      existingContract.nextPaymentDate = nextMonth;
-      await existingContract.save();
-    }
+    // ❌ PENDING to'lovlar Contract.payments ga QOSHILMAYDI
+    // ✅ Faqat confirmPayment() da qo'shiladi (kassa tasdiqlangandan keyin)
+    
+    // ❌ nextPaymentDate YANGILANMAYDI
+    // ✅ Faqat confirmPayment() da yangilanadi (kassa tasdiqlangandan keyin)
+    
+    console.log("⏳ Payment created in PENDING status");
+    console.log("⏳ Waiting for cash confirmation");
+    console.log("⏳ nextPaymentDate will be updated after confirmation");
 
     // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
     // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda

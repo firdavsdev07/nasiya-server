@@ -30,8 +30,8 @@ export class PayDto {
   notes?: string;
 
   @IsNumber({}, { message: "Target oy raqam bo'lishi kerak" })
-  @IsOptional()
-  targetMonth?: number; // ✅ Yangi: Qaysi oyga to'lov qilinayotgani
+  @Min(1, { message: "Target oy 1 dan kichik bo'lmasligi kerak" })
+  targetMonth: number; // ✅ Yangi: Qaysi oyga to'lov qilinayotgani (REQUIRED)
 
   @ValidateNested()
   @Type(() => CurrencyDetailsDto)
