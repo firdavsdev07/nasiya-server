@@ -7,6 +7,7 @@ import { validate } from "class-validator";
 import { PayDebtDto, PayNewDebtDto } from "../../validators/payment";
 import { handleValidationErrors } from "../../validators/format";
 import paymentService from "../services/payment.service";
+import dashboardPaymentController from "../../dashboard/controllers/payment.controller";
 
 // const user: IJwtUser = {
 //   sub: "686e7881ab577df7c3eb3db2",
@@ -88,6 +89,10 @@ class PaymentController {
       console.error("❌ Postpone payment error:", error);
       return next(error);
     }
+  }
+
+  async payAllRemainingMonths(req: Request, res: Response, next: NextFunction) {
+    return dashboardPaymentController.payAllRemainingMonths(req, res, next);
   }
 }
 export default new PaymentController();
