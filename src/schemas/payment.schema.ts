@@ -43,6 +43,7 @@ export interface IPayment {
   reason?: PaymentReason; // Sabab: 'monthly_payment_increase', 'initial_payment_change'
   prepaidAmount?: number; // Oldindan to'langan summa (keyingi oydan)
   appliedToPaymentId?: IPayment | string; // Qaysi to'lovga qo'llanildi (ortiqcha summa uchun)
+  targetMonth?: number; // ✅ YANGI - Qaysi oyga to'lov qilinmoqda (1, 2, 3...)
 }
 
 const PaymentSchema = new Schema<IPayment>(
@@ -101,6 +102,7 @@ const PaymentSchema = new Schema<IPayment>(
       ref: "Payment",
       required: false,
     },
+    targetMonth: { type: Number }, // ✅ YANGI - Qaysi oyga to'lov qilinmoqda
   },
   {
     timestamps: true,
